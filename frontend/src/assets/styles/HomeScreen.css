@@ -1,0 +1,121 @@
+/* Modern Home Screen Styles */
+.home-screen {
+  background-color: #f8f9fa;
+}
+
+.product-section {
+  padding: 3rem 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.product-section.scrolled {
+  padding-top: 5rem;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.section-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.section-title::after {
+  content: '';
+  display: block;
+  width: 50px;
+  height: 4px;
+  background: linear-gradient(to right, #ff5252, #ff8383);
+  margin-top: 0.5rem;
+  position: absolute;
+  bottom: -10px;
+  left: 0;
+}
+
+.product-count {
+  font-size: 1rem;
+  font-weight: 400;
+  color: #7f8c8d;
+  margin-left: 1rem;
+  background: #ecf0f1;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+}
+
+.view-all {
+  color: #3498db;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+}
+
+.view-all:hover {
+  color: #2980b9;
+  transform: translateX(5px);
+}
+
+/* Product Grid Styles */
+.product-grid {
+  margin: 0 -15px;
+  padding: 0 15px;
+}
+
+.product-col {
+  padding: 15px;
+  margin-bottom: 30px;
+}
+
+.product-wrapper {
+  height: 100%;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+}
+
+.product-wrapper:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+.loader-container {
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pagination-container {
+  margin-top: 3rem;
+  display: flex;
+  justify-content: center;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .product-col {
+    padding: 10px;
+    margin-bottom: 20px;
+  }
+}
+
+@media (max-width: 576px) {
+  .product-col {
+    padding: 8px;
+    margin-bottom: 16px;
+  }
+}

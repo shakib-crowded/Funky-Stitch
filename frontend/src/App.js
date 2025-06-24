@@ -8,6 +8,7 @@ import { logout } from './slices/authSlice';
 
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import HeroSection from './components/HeroSection';
 
 const App = () => {
   const dispatch = useDispatch();

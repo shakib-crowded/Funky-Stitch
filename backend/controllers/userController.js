@@ -1,6 +1,8 @@
 import asyncHandler from '../middleware/asyncHandler.js';
 import generateToken from '../utils/generateToken.js';
 import User from '../models/userModel.js';
+import TempUser from '../models/tempUserModel.js';
+import sendOTPEmail from '../utils/email.js';
 
 // @desc    Auth user & get token
 // @route   POST /api/users/auth
@@ -25,27 +27,82 @@ const authUser = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Register a new user
-// @route   POST /api/users
+// @desc    Register a new user (send OTP)
+// @route   POST /api/users/register
 // @access  Public
 const registerUser = asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
 
   const userExists = await User.findOne({ email });
-
   if (userExists) {
     res.status(400);
     throw new Error('User already exists');
   }
 
-  const user = await User.create({
-    name,
+  // Generate new OTP and expiry
+  const otp = Math.floor(100000 + Math.random() * 900000);
+  const otpExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+  // Check if TempUser exists
+  let tempUser = await TempUser.findOne({ email });
+
+  if (tempUser) {
+    // Update existing temp user with new OTP and password (optional: overwrite name too)
+    tempUser.otp = otp;
+    tempUser.otpExpiry = otpExpiry;
+    tempUser.password = password;
+    tempUser.name = name;
+    await tempUser.save();
+  } else {
+    // Create new temp user
+    tempUser = await TempUser.create({
+      name,
+      email,
+      password,
+      otp,
+      otpExpiry,
+    });
+  }
+
+  // Send OTP
+  sendOTPEmail(email, otp);
+
+  res.status(200).json({
+    message: 'OTP sent to email',
     email,
-    password,
+    tempUserId: tempUser._id,
+  });
+});
+
+// @desc    Verify OTP and complete registration
+// @route   POST /api/users/verify-otp
+// @access  Public
+const verifyOTP = asyncHandler(async (req, res) => {
+  const { tempUserId, otp, email } = req.body;
+
+  const tempUser = await TempUser.findOne({
+    _id: tempUserId,
+    email,
+    otpExpiry: { $gt: Date.now() },
+  });
+
+  if (!tempUser || tempUser.otp !== otp) {
+    res.status(400);
+    throw new Error('Invalid OTP or OTP expired');
+  }
+
+  // Create the actual user
+  const user = await User.create({
+    name: tempUser.name,
+    email: tempUser.email,
+    password: tempUser.password,
   });
 
   if (user) {
     generateToken(res, user._id);
+
+    // Clean up - delete temp user
+    await TempUser.deleteOne({ _id: tempUserId });
 
     res.status(201).json({
       _id: user._id,
@@ -58,7 +115,6 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new Error('Invalid user data');
   }
 });
-
 // @desc    Logout user / clear cookie
 // @route   POST /api/users/logout
 // @access  Public
@@ -179,6 +235,65 @@ const updateUser = asyncHandler(async (req, res) => {
   }
 });
 
+// controllers/contactController.js
+import nodemailer from 'nodemailer';
+
+const contactUs = async (req, res) => {
+  const { name, email, subject, message } = req.body;
+
+  try {
+    // 1. Validate input
+    if (!name || !email || !subject || !message) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    // 2. Create email transporter
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    // 3. Email options
+    const mailOptions = {
+      from: email,
+      to: process.env.COMPANY_EMAIL,
+      subject: `New Contact Form Submission: ${subject}`,
+      text: `
+        You have a new contact form submission:
+        
+        Name: ${name}
+        Email: ${email}
+        Subject: ${subject}
+        Message: ${message}
+      `,
+      html: `
+        <h2>New Contact Form Submission</h2>
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Subject:</strong> ${subject}</p>
+        <p><strong>Message:</strong></p>
+        <p>${message}</p>
+      `,
+    };
+
+    // 4. Send email
+    await transporter.sendMail(mailOptions);
+
+    // 5. Optionally save to database here if needed
+
+    res.status(200).json({ message: 'Message sent successfully!' });
+  } catch (error) {
+    console.error('Error sending contact form:', error);
+    res.status(500).json({
+      message: 'Error sending message',
+      error: error.message,
+    });
+  }
+};
+
 export {
   authUser,
   registerUser,
@@ -189,4 +304,6 @@ export {
   deleteUser,
   getUserById,
   updateUser,
+  contactUs,
+  verifyOTP,
 };

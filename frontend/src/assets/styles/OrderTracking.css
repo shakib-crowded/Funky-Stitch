@@ -1,0 +1,59 @@
+/* Add to your CSS file */
+.timeline {
+  position: relative;
+  padding-left: 50px;
+}
+
+.timeline-step {
+  position: relative;
+  padding-bottom: 30px;
+}
+
+.timeline-step:last-child {
+  padding-bottom: 0;
+}
+
+.timeline-icon {
+  position: absolute;
+  left: -50px;
+  top: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+
+.timeline-step.active .timeline-icon {
+  background-color: #0d6efd;
+  color: white;
+}
+
+.timeline-step.completed .timeline-icon {
+  background-color: #198754;
+  color: white;
+}
+
+.timeline-content {
+  padding: 10px 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
+.timeline-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: -30px;
+  top: 40px;
+  height: calc(100% - 40px);
+  width: 2px;
+  background-color: #dee2e6;
+}
+
+.timeline-step.active:not(:last-child)::after,
+.timeline-step.completed:not(:last-child)::after {
+  background-color: #0d6efd;
+}

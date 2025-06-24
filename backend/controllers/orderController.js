@@ -128,11 +128,11 @@ const updateOrderToDelivered = asyncHandler(async (req, res) => {
   const order = await Order.findById(req.params.id);
 
   if (order) {
+    order.status = 'Delivered';
     order.isDelivered = true;
     order.deliveredAt = Date.now();
 
     const updatedOrder = await order.save();
-
     res.json(updatedOrder);
   } else {
     res.status(404);
@@ -147,12 +147,74 @@ const getOrders = asyncHandler(async (req, res) => {
   const orders = await Order.find({}).populate('user', 'id name');
   res.json(orders);
 });
+// @desc    Track order by ID
+// @route   GET /api/orders/track/:orderId
+// @access  Private
+const trackOrder = asyncHandler(async (req, res) => {
+  const order = await Order.findById(req.params.orderId)
+    .populate('user', 'name email')
+    .populate('orderItems.product', 'name image');
 
+  if (!order) {
+    res.status(404);
+    throw new Error('Order not found');
+  }
+
+  // Only allow the order owner or admin to track
+  if (
+    order.user._id.toString() !== req.user._id.toString() &&
+    !req.user.isAdmin
+  ) {
+    res.status(401);
+    throw new Error('Not authorized to view this order');
+  }
+
+  res.json({
+    _id: order._id,
+    status: order.status,
+    createdAt: order.createdAt,
+    shippedAt: order.shippedAt,
+    deliveredAt: order.deliveredAt,
+    trackingNumber: order.trackingNumber,
+    carrier: order.carrier,
+    orderItems: order.orderItems,
+    shippingAddress: order.shippingAddress,
+    totalPrice: order.totalPrice,
+    isPaid: order.isPaid,
+    paidAt: order.paidAt,
+  });
+});
+
+// @desc    Update order shipping info
+// @route   PUT /api/orders/:id/ship
+// @access  Private/Admin
+const updateOrderToShipped = asyncHandler(async (req, res) => {
+  const { trackingNumber, carrier } = req.body;
+
+  const order = await Order.findById(req.params.id);
+
+  if (order) {
+    order.status = 'Shipped';
+    order.shippedAt = Date.now();
+    order.trackingNumber = trackingNumber;
+    order.carrier = carrier;
+
+    const updatedOrder = await order.save();
+    res.json(updatedOrder);
+  } else {
+    res.status(404);
+    throw new Error('Order not found');
+  }
+});
+
+// Update your exports
 export {
   addOrderItems,
   getMyOrders,
   getOrderById,
   updateOrderToPaid,
   updateOrderToDelivered,
+  updateOrderToShipped, // Add this
+  trackOrder, // Add this
   getOrders,
 };

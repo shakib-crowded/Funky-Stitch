@@ -1,8 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Form, Button, Row, Col } from 'react-bootstrap';
-import { useDispatch, useSelector } from 'react-redux';
-import { FaTimes } from 'react-icons/fa';
+import {
+  Card,
+  Form,
+  Button,
+  Row,
+  Col,
+  Table,
+  Badge,
+  Container,
+} from 'react-bootstrap';
+import { useSelector, useDispatch } from 'react-redux'; // Added missing imports
 
+import { FaTimes, FaCheck, FaEdit, FaHistory } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import Message from '../components/Message';
 import Loader from '../components/Loader';
@@ -18,149 +27,218 @@ const ProfileScreen = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   const { userInfo } = useSelector((state) => state.auth);
-
   const { data: orders, isLoading, error } = useGetMyOrdersQuery();
-
   const [updateProfile, { isLoading: loadingUpdateProfile }] =
     useProfileMutation();
+  const dispatch = useDispatch();
 
   useEffect(() => {
     setName(userInfo.name);
     setEmail(userInfo.email);
   }, [userInfo.email, userInfo.name]);
 
-  const dispatch = useDispatch();
   const submitHandler = async (e) => {
     e.preventDefault();
     if (password !== confirmPassword) {
       toast.error('Passwords do not match');
     } else {
       try {
-        const res = await updateProfile({
-          // NOTE: here we don't need the _id in the request payload as this is
-          // not used in our controller.
-          // _id: userInfo._id,
-          name,
-          email,
-          password,
-        }).unwrap();
+        const res = await updateProfile({ name, email, password }).unwrap();
         dispatch(setCredentials({ ...res }));
         toast.success('Profile updated successfully');
+        setPassword('');
+        setConfirmPassword('');
       } catch (err) {
         toast.error(err?.data?.message || err.error);
       }
     }
   };
 
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
   return (
-    <Row>
-      <Col md={3}>
-        <h2>User Profile</h2>
+    <Container className='py-4'>
+      <Row className='g-4'>
+        <Col lg={4}>
+          <Card className='border-0 shadow-sm'>
+            <Card.Body>
+              <div className='text-center mb-4'>
+                <div className='bg-light rounded-circle d-inline-flex p-3 mb-2'>
+                  <FaEdit size={32} className='text-primary' />
+                </div>
+                <h3 className='fw-bold'>Profile Settings</h3>
+                <p className='text-muted'>Update your account information</p>
+              </div>
 
-        <Form onSubmit={submitHandler}>
-          <Form.Group className='my-2' controlId='name'>
-            <Form.Label>Name</Form.Label>
-            <Form.Control
-              type='text'
-              placeholder='Enter name'
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            ></Form.Control>
-          </Form.Group>
+              <Form onSubmit={submitHandler}>
+                <Form.Group className='mb-3'>
+                  <Form.Label>Name</Form.Label>
+                  <Form.Control
+                    type='text'
+                    placeholder='Enter name'
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className='py-2'
+                    style={{ borderRadius: '8px' }}
+                  />
+                </Form.Group>
 
-          <Form.Group className='my-2' controlId='email'>
-            <Form.Label>Email Address</Form.Label>
-            <Form.Control
-              type='email'
-              placeholder='Enter email'
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            ></Form.Control>
-          </Form.Group>
+                <Form.Group className='mb-3'>
+                  <Form.Label>Email Address</Form.Label>
+                  <Form.Control
+                    type='email'
+                    placeholder='Enter email'
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className='py-2'
+                    style={{ borderRadius: '8px' }}
+                  />
+                </Form.Group>
 
-          <Form.Group className='my-2' controlId='password'>
-            <Form.Label>Password</Form.Label>
-            <Form.Control
-              type='password'
-              placeholder='Enter password'
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            ></Form.Control>
-          </Form.Group>
+                <Form.Group className='mb-3'>
+                  <Form.Label>Password</Form.Label>
+                  <Form.Control
+                    type='password'
+                    placeholder='Enter new password'
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className='py-2'
+                    style={{ borderRadius: '8px' }}
+                  />
+                </Form.Group>
 
-          <Form.Group className='my-2' controlId='confirmPassword'>
-            <Form.Label>Confirm Password</Form.Label>
-            <Form.Control
-              type='password'
-              placeholder='Confirm password'
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-            ></Form.Control>
-          </Form.Group>
+                <Form.Group className='mb-4'>
+                  <Form.Label>Confirm Password</Form.Label>
+                  <Form.Control
+                    type='password'
+                    placeholder='Confirm new password'
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className='py-2'
+                    style={{ borderRadius: '8px' }}
+                  />
+                </Form.Group>
 
-          <Button type='submit' variant='primary'>
-            Update
-          </Button>
-          {loadingUpdateProfile && <Loader />}
-        </Form>
-      </Col>
-      <Col md={9}>
-        <h2>My Orders</h2>
-        {isLoading ? (
-          <Loader />
-        ) : error ? (
-          <Message variant='danger'>
-            {error?.data?.message || error.error}
-          </Message>
-        ) : (
-          <Table striped hover responsive className='table-sm'>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>DATE</th>
-                <th>TOTAL</th>
-                <th>PAID</th>
-                <th>DELIVERED</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order) => (
-                <tr key={order._id}>
-                  <td>{order._id}</td>
-                  <td>{order.createdAt.substring(0, 10)}</td>
-                  <td>{order.totalPrice}</td>
-                  <td>
-                    {order.isPaid ? (
-                      order.paidAt.substring(0, 10)
-                    ) : (
-                      <FaTimes style={{ color: 'red' }} />
-                    )}
-                  </td>
-                  <td>
-                    {order.isDelivered ? (
-                      order.deliveredAt.substring(0, 10)
-                    ) : (
-                      <FaTimes style={{ color: 'red' }} />
-                    )}
-                  </td>
-                  <td>
-                    <Button
-                      as={Link}
-                      to={`/order/${order._id}`}
-                      className='btn-sm'
-                      variant='light'
-                    >
-                      Details
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        )}
-      </Col>
-    </Row>
+                <Button
+                  type='submit'
+                  variant='primary'
+                  className='w-100 py-2 fw-medium'
+                  disabled={loadingUpdateProfile}
+                  style={{
+                    borderRadius: '8px',
+                    backgroundColor: '#FF5252',
+                    border: 'none',
+                    boxShadow: '0 2px 8px rgba(255, 82, 82, 0.3)',
+                    transition: 'all 0.3s ease',
+                  }}
+                >
+                  {loadingUpdateProfile ? (
+                    <Loader size='sm' />
+                  ) : (
+                    'Update Profile'
+                  )}
+                </Button>
+              </Form>
+            </Card.Body>
+          </Card>
+        </Col>
+
+        <Col lg={8}>
+          <Card className='border-0 shadow-sm'>
+            <Card.Body>
+              <div className='d-flex align-items-center mb-4'>
+                <div className='bg-light rounded-circle d-inline-flex p-3 me-3'>
+                  <FaHistory className='text-primary' />
+                </div>
+                <div>
+                  <h3 className='fw-bold mb-0'>Order History</h3>
+                  <p className='text-muted mb-0'>Your recent purchases</p>
+                </div>
+              </div>
+
+              {isLoading ? (
+                <Loader />
+              ) : error ? (
+                <Message variant='danger'>
+                  {error?.data?.message || error.error}
+                </Message>
+              ) : orders?.length === 0 ? (
+                <Message>
+                  You haven't placed any orders yet.{' '}
+                  <Link to='/'>Start Shopping</Link>
+                </Message>
+              ) : (
+                <div className='table-responsive'>
+                  <Table hover className='mb-0'>
+                    <thead style={{ backgroundColor: '#f8f9fa' }}>
+                      <tr>
+                        <th>Order ID</th>
+                        <th>Date</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orders.map((order) => (
+                        <tr key={order._id}>
+                          <td className='text-muted'>
+                            {order._id.substring(0, 8)}...
+                          </td>
+                          <td>{formatDate(order.createdAt)}</td>
+                          <td>₹{order.totalPrice.toFixed(2)}</td>
+                          <td>
+                            <div className='d-flex align-items-center'>
+                              {order.isPaid ? (
+                                <Badge bg='success' className='me-2'>
+                                  <FaCheck className='me-1' /> Paid
+                                </Badge>
+                              ) : (
+                                <Badge
+                                  bg='warning'
+                                  text='dark'
+                                  className='me-2'
+                                >
+                                  <FaTimes className='me-1' /> Pending
+                                </Badge>
+                              )}
+                              {order.isDelivered ? (
+                                <Badge bg='success'>
+                                  <FaCheck className='me-1' /> Delivered
+                                </Badge>
+                              ) : (
+                                <Badge bg='secondary'>Processing</Badge>
+                              )}
+                            </div>
+                          </td>
+                          <td>
+                            <Button
+                              as={Link}
+                              to={`/order/${order._id}`}
+                              size='sm'
+                              variant='outline-primary'
+                              className='px-3'
+                            >
+                              View
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
+              )}
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+    </Container>
   );
 };
 

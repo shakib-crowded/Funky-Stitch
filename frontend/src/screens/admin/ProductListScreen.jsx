@@ -73,9 +73,9 @@ const ProductListScreen = () => {
                 <th>ID</th>
                 <th>NAME</th>
                 <th>PRICE</th>
+                <th>DISCOUNT</th>
                 <th>CATEGORY</th>
                 <th>BRAND</th>
-                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -83,7 +83,8 @@ const ProductListScreen = () => {
                 <tr key={product._id}>
                   <td>{product._id}</td>
                   <td>{product.name}</td>
-                  <td>${product.price}</td>
+                  <td>&#8377;{product.price}</td>
+                  <td>&#8377;{product.discount}</td>
                   <td>{product.category}</td>
                   <td>{product.brand}</td>
                   <td>

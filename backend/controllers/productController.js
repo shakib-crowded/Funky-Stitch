@@ -50,6 +50,7 @@ const createProduct = asyncHandler(async (req, res) => {
   const product = new Product({
     name: 'Sample name',
     price: 0,
+    discount: 0,
     user: req.user._id,
     image: '/images/sample.jpg',
     brand: 'Sample brand',
@@ -57,6 +58,11 @@ const createProduct = asyncHandler(async (req, res) => {
     countInStock: 0,
     numReviews: 0,
     description: 'Sample description',
+    features: ['Sample feature 1', 'Sample feature 2'],
+    specifications: [
+      { label: 'Material', value: 'Sample Material' },
+      { label: 'Weight', value: '0 kg' },
+    ],
   });
 
   const createdProduct = await product.save();
@@ -67,19 +73,34 @@ const createProduct = asyncHandler(async (req, res) => {
 // @route   PUT /api/products/:id
 // @access  Private/Admin
 const updateProduct = asyncHandler(async (req, res) => {
-  const { name, price, description, image, brand, category, countInStock } =
-    req.body;
+  const {
+    name,
+    price,
+    discount,
+    description,
+    image,
+    brand,
+    category,
+    countInStock,
+    features,
+    specifications,
+  } = req.body;
 
   const product = await Product.findById(req.params.id);
 
   if (product) {
     product.name = name;
     product.price = price;
+    product.discount = discount;
     product.description = description;
     product.image = image;
     product.brand = brand;
     product.category = category;
     product.countInStock = countInStock;
+    product.features = (features || []).filter((f) => f.trim() !== ''); // Only remove completely empty features
+    product.specifications = (specifications || []).filter(
+      (spec) => spec.label.trim() !== '' && spec.value.trim() !== ''
+    );
 
     const updatedProduct = await product.save();
     res.json(updatedProduct);
