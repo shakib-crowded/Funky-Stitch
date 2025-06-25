@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Container } from 'react-bootstrap';
 import '../assets/styles/HeroSection.css';
+import hero1 from '../assets/hero-1.jpg'; 
+import hero2 from '../assets/hero-2.jpg'; 
 
 const HeroSection = () => {
   const [activeSlide, setActiveSlide] = useState(0);
@@ -11,17 +13,15 @@ const HeroSection = () => {
       subtitle: 'Discover our new arrivals',
       description: 'Up to 50% off on selected items',
       buttonText: 'Shop Now',
-      background:
-        "linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://images.unsplash.com/photo-1490481651871-ab68de25d43d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80')",
+        background: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${hero1})`,
+
     },
     {
       title: 'Limited Edition',
       subtitle: 'Exclusive designs for you',
       description: 'Only available this season',
       buttonText: 'Explore',
-      background:
-        "linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://images.unsplash.com/photo-1483985988355-763728e1935b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80')",
-    },
+background: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${hero2})`,    },
     {
       title: 'Premium Quality',
       subtitle: 'Crafted with perfection',

@@ -29,15 +29,11 @@ const Footer = () => {
               <a href='#' className='text-white me-3'>
                 <FaTwitter size={20} />
               </a>
-              <a href='#' className='text-white me-3'>
+              <a href='https://www.instagram.com/funkystitch.in/' target='_blank' className='text-white me-3'>
                 <FaInstagram size={20} />
               </a>
-              <a href='#' className='text-white me-3'>
-                <FaLinkedin size={20} />
-              </a>
-              <a href='#' className='text-white'>
-                <FaYoutube size={20} />
-              </a>
+        
+        
             </div>
           </div>
 
