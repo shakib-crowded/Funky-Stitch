@@ -15,6 +15,7 @@ import { FaTrash, FaArrowLeft, FaShoppingBag } from 'react-icons/fa';
 import { useEffect, useRef } from 'react';
 import Message from '../components/Message';
 import { addToCart, removeFromCart } from '../slices/cartSlice';
+import { toast } from 'react-toastify';
 
 const CartScreen = () => {
   const navigate = useNavigate();
@@ -23,69 +24,87 @@ const CartScreen = () => {
   const { cartItems } = cart;
   const cartItemRefs = useRef([]);
 
-  const addToCartHandler = (product, qty) => {
-    dispatch(addToCart({ ...product, qty }));
+  const updateCartHandler = (item, newQty, variant) => {
+    if (newQty < 1) {
+      toast.error('Quantity must be at least 1');
+      return;
+    }
+
+    if (variant && newQty > variant.stock) {
+      toast.error(`Only ${variant.stock} items available in stock`);
+      return;
+    }
+
+    dispatch(addToCart({ ...item, qty: newQty, variant }));
   };
 
-  const removeFromCartHandler = (id) => {
-    dispatch(removeFromCart(id));
+  const removeFromCartHandler = (productId, variantKey) => {
+    dispatch(removeFromCart({ productId, variantKey }));
   };
 
   const checkoutHandler = () => {
     navigate('/login?redirect=/shipping');
   };
 
-  // Apply hover effects manually
+  const getVariantKey = (item) => {
+    if (item.variant) {
+      return `${item.variant.size}-${item.variant.color}-${item._id}`;
+    }
+    return item._id;
+  };
+
+  const getItemPrice = (item) => {
+    return item.variant?.price || item.basePrice || item.price;
+  };
+
+  const getDiscountedPrice = (item) => {
+    const price = getItemPrice(item);
+    return item.discount > 0 ? price * (1 - item.discount / 100) : price;
+  };
+
   useEffect(() => {
-    const handleMouseEnter = (ref) => {
-      ref.style.transform = 'translateY(-2px)';
-      ref.style.transition = 'all 0.3s ease';
-      ref.style.color = '#E64545';
+    const items = cartItemRefs.current;
+    const handleMouseEnter = (el) => {
+      el.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.1)';
+      el.style.transform = 'translateY(-2px)';
+    };
+    const handleMouseLeave = (el) => {
+      el.style.boxShadow = '';
+      el.style.transform = '';
     };
 
-    const handleMouseLeave = (ref) => {
-      ref.style.transform = 'translateY(0)';
-      ref.style.color = '#FF5252';
-    };
-
-    cartItemRefs.current.forEach((ref, index) => {
-      if (ref) {
-        const enterHandler = () => handleMouseEnter(ref);
-        const leaveHandler = () => handleMouseLeave(ref);
-
-        ref.addEventListener('mouseenter', enterHandler);
-        ref.addEventListener('mouseleave', leaveHandler);
-
-        // Store the handlers so we can remove them later
-        ref._enterHandler = enterHandler;
-        ref._leaveHandler = leaveHandler;
+    items.forEach((item) => {
+      if (item) {
+        item.addEventListener('mouseenter', () => handleMouseEnter(item));
+        item.addEventListener('mouseleave', () => handleMouseLeave(item));
       }
     });
 
     return () => {
-      cartItemRefs.current.forEach((ref) => {
-        if (ref) {
-          ref.removeEventListener('mouseenter', ref._enterHandler);
-          ref.removeEventListener('mouseleave', ref._leaveHandler);
+      items.forEach((item) => {
+        if (item) {
+          item.removeEventListener('mouseenter', () => handleMouseEnter(item));
+          item.removeEventListener('mouseleave', () => handleMouseLeave(item));
         }
       });
     };
   }, [cartItems]);
+
   return (
     <Container className='py-5'>
-      <Button
-        variant='outline-secondary'
-        onClick={() => navigate(-1)}
-        className='mb-4'
-      >
-        <FaArrowLeft className='me-2' />
-        Continue Shopping
-      </Button>
-
-      <h2 className='mb-4' style={{ color: '#FF5252' }}>
-        <FaShoppingBag className='me-2' />
-        Your Shopping Cart
-      </h2>
+      <Row className='mb-4'>
+        <Col>
+          <Button
+            variant='light'
+            onClick={() => navigate(-1)}
+            className='rounded-circle'
+            style={{ width: '40px', height: '40px' }}
+          >
+            <FaArrowLeft />
+          </Button>
+          <h2 className='d-inline-block ms-3 mb-0'>Shopping Cart</h2>
+        </Col>
+      </Row>
 
       <Row>
         <Col lg={8}>
@@ -100,116 +119,134 @@ const CartScreen = () => {
           ) : (
             <Card className='border-0'>
               <ListGroup variant='flush'>
-                {cartItems.map((item, index) => (
-                  <ListGroup.Item
-                    key={item._id}
-                    ref={(el) => (cartItemRefs.current[index] = el)}
-                    className='py-3 px-4 mb-2 rounded shadow-sm'
-                    style={{
-                      transition: 'all 0.3s ease',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <Row className='align-items-center'>
-                      <Col xs={3} md={2}>
-                        <Image
-                          src={item.image}
-                          alt={item.name}
-                          fluid
-                          rounded
-                          className='shadow-sm'
-                          style={{
-                            transition: 'transform 0.3s ease',
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = 'scale(1.05)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = 'scale(1)';
-                          }}
-                        />
-                      </Col>
-                      <Col xs={9} md={4} className='pe-md-0'>
-                        <Link
-                          to={`/product/&#8377;{item._id}`}
-                          className='text-decoration-none text-dark fw-semibold'
-                          style={{
-                            transition: 'color 0.3s ease',
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.color = '#0d6efd';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.color = '#212529';
-                          }}
-                        >
-                          {item.name}
-                        </Link>
-                        <div className='text-muted small'>{item.brand}</div>
-                      </Col>
+                {cartItems.map((item, index) => {
+                  const variantKey = getVariantKey(item);
+                  const price = getItemPrice(item);
+                  const discountedPrice = getDiscountedPrice(item);
+                  const itemQty = item.qty || 1; // Ensure quantity is never 0
 
-                      <Col md={2} className='text-center d-none d-md-block'>
-                        {item.discount > 0 ? (
-                          <div>
-                            <span className='fw-semibold text-danger'>
-                              ₹
-                              {(item.price * (1 - item.discount / 100)).toFixed(
-                                2
-                              )}
-                            </span>
-                            <div className='text-muted small text-decoration-line-through'>
-                              ₹{item.price.toFixed(2)}
+                  return (
+                    <ListGroup.Item
+                      key={variantKey || item._id}
+                      ref={(el) => (cartItemRefs.current[index] = el)}
+                      className='py-3 px-4 mb-2 rounded shadow-sm'
+                      style={{ transition: 'all 0.3s ease' }}
+                    >
+                      <Row className='align-items-center'>
+                        <Col xs={3} md={2}>
+                          <Image
+                            src={item.image}
+                            alt={item.name}
+                            fluid
+                            rounded
+                            className='shadow-sm'
+                            style={{ transition: 'transform 0.3s ease' }}
+                          />
+                        </Col>
+                        <Col xs={9} md={4} className='pe-md-0'>
+                          <Link
+                            to={`/product/${item._id}`}
+                            className='text-decoration-none text-dark fw-semibold'
+                          >
+                            {item.name}
+                          </Link>
+                          <div className='text-muted small'>{item.brand}</div>
+                          {item.variant && (
+                            <div className='mt-1'>
+                              <Badge bg='light' text='dark' className='me-1'>
+                                {item.variant.size?.toUpperCase()}
+                              </Badge>
+                              <Badge
+                                bg='light'
+                                text='dark'
+                                style={{ backgroundColor: item.variant.color }}
+                              >
+                                {item.variant.color}
+                              </Badge>
                             </div>
-                            <Badge bg='danger' className='ms-2'>
-                              -{item.discount}%
-                            </Badge>
-                          </div>
-                        ) : (
-                          <span className='fw-semibold'>
-                            ₹{item.price.toFixed(2)}
-                          </span>
-                        )}
-                      </Col>
+                          )}
+                        </Col>
 
-                      <Col xs={6} md={2}>
-                        <Form.Select
-                          value={item.qty}
-                          onChange={(e) =>
-                            addToCartHandler(item, Number(e.target.value))
-                          }
-                          className='shadow-sm'
-                          style={{
-                            transition: 'all 0.3s ease',
-                          }}
-                        >
-                          {[...Array(item.countInStock).keys()].map((x) => (
-                            <option key={x + 1} value={x + 1}>
-                              {x + 1}
-                            </option>
-                          ))}
-                        </Form.Select>
-                      </Col>
-                      <Col xs={4} md={1} className='text-center'>
-                        <span className='fw-semibold d-block d-md-none'>
-                          &#8377;{(item.price * item.qty).toFixed(2)}
-                        </span>
-                      </Col>
-                      <Col xs={2} md={1} className='text-end'>
-                        <Button
-                          variant='outline-danger'
-                          size='sm'
-                          onClick={() => removeFromCartHandler(item._id)}
-                          className='p-1'
-                          style={{
-                            transition: 'all 0.3s ease',
-                          }}
-                        >
-                          <FaTrash />
-                        </Button>
-                      </Col>
-                    </Row>
-                  </ListGroup.Item>
-                ))}
+                        <Col md={2} className='text-center d-none d-md-block'>
+                          {item.discount > 0 ? (
+                            <div>
+                              <span className='fw-semibold text-danger'>
+                                ₹{discountedPrice.toFixed(2)}
+                              </span>
+                              <div className='text-muted small text-decoration-line-through'>
+                                ₹{price.toFixed(2)}
+                              </div>
+                              <Badge bg='danger' className='ms-2'>
+                                -{item.discount}%
+                              </Badge>
+                            </div>
+                          ) : (
+                            <span className='fw-semibold'>
+                              ₹{price.toFixed(2)}
+                            </span>
+                          )}
+                        </Col>
+
+                        <Col xs={6} md={2}>
+                          <Form.Select
+                            value={itemQty} // Use the validated quantity
+                            onChange={(e) =>
+                              updateCartHandler(
+                                item,
+                                Math.max(Number(e.target.value), 1), // Ensure minimum 1
+                                item.variant
+                              )
+                            }
+                            className='shadow-sm'
+                            disabled={!item.variant || item.variant.stock <= 0}
+                          >
+                            {(() => {
+                              const maxQty = item.variant
+                                ? Math.min(Math.max(1, item.variant.stock), 10)
+                                : 1;
+                              return Array.from({ length: maxQty }, (_, i) => (
+                                <option key={i + 1} value={i + 1}>
+                                  {i + 1}
+                                </option>
+                              ));
+                            })()}
+                          </Form.Select>
+                          {item.variant && (
+                            <small
+                              className={`d-block mt-1 ${
+                                item.variant.stock <= 5
+                                  ? 'text-danger'
+                                  : 'text-muted'
+                              }`}
+                            >
+                              {item.variant.stock} available{' '}
+                              {item.variant.stock <= 5 && '(Low stock)'}
+                            </small>
+                          )}
+                        </Col>
+
+                        <Col xs={4} md={1} className='text-center'>
+                          <span className='fw-semibold d-block d-md-none'>
+                            ₹{(discountedPrice * itemQty).toFixed(2)}
+                          </span>
+                        </Col>
+
+                        <Col xs={2} md={1} className='text-end'>
+                          <Button
+                            variant='outline-danger'
+                            size='sm'
+                            onClick={() =>
+                              removeFromCartHandler(item._id, variantKey)
+                            }
+                            className='p-1'
+                          >
+                            <FaTrash />
+                          </Button>
+                        </Col>
+                      </Row>
+                    </ListGroup.Item>
+                  );
+                })}
               </ListGroup>
             </Card>
           )}
@@ -218,117 +255,62 @@ const CartScreen = () => {
         <Col lg={4}>
           <Card
             className='border-0'
-            ref={(el) => (cartItemRefs.current[cartItems.length] = el)}
-            style={{
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.12)',
-              transition: 'all 0.3s ease',
-              borderRadius: '12px',
-              overflow: 'hidden',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow =
-                '0 6px 24px rgba(0, 0, 0, 0.16)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow =
-                '0 4px 20px rgba(0, 0, 0, 0.12)';
-            }}
+            style={{ boxShadow: '0 4px 20px rgba(0, 0, 0, 0.12)' }}
           >
-            <Card.Body style={{ padding: '1.5rem' }}>
-              <h5 className='mb-3' style={{ fontWeight: '600', color: '#333' }}>
-                Order Summary
-              </h5>
+            <Card.Body>
+              <h5 className='mb-3'>Order Summary</h5>
               <ListGroup variant='flush'>
                 <ListGroup.Item className='d-flex justify-content-between py-2 px-0 border-0'>
-                  <span style={{ color: '#555' }}>
+                  <span>
                     Subtotal (
-                    {cartItems.reduce((acc, item) => acc + item.qty, 0)} items)
+                    {cartItems.reduce((acc, item) => acc + (item.qty || 1), 0)}{' '}
+                    items)
                   </span>
-                  <span className='fw-semibold' style={{ color: '#333' }}>
+                  <span className='fw-semibold'>
                     ₹
                     {cartItems
-                      .reduce((acc, item) => acc + item.qty * item.price, 0)
+                      .reduce(
+                        (acc, item) =>
+                          acc + (item.qty || 1) * getItemPrice(item),
+                        0
+                      )
                       .toFixed(2)}
                   </span>
                 </ListGroup.Item>
 
-                {/* Add Discount row if any items have discount */}
-                {/* {cartItems.some((item) => item.discount > 0) && (
-                  <div className='text-end text-success small mt-2'>
-                    You save ₹
-                    {cartItems
-                      .reduce((acc, item) => {
-                        return (
-                          acc +
-                          (item.discount > 0
-                            ? item.qty * item.price * (item.discount / 100)
-                            : 0)
-                        );
-                      }, 0)
-                      .toFixed(2)}
-                  </div>
-                )} */}
-
                 <ListGroup.Item className='d-flex justify-content-between py-2 px-0 border-0'>
-                  <span style={{ color: '#555' }}>Discount</span>
-
+                  <span>Discount</span>
                   <span className='text-success'>
-                    - &#8377;
+                    - ₹
                     {cartItems
                       .reduce((acc, item) => {
                         return (
                           acc +
                           (item.discount > 0
-                            ? item.qty * item.price * (item.discount / 100)
+                            ? (item.qty || 1) *
+                              getItemPrice(item) *
+                              (item.discount / 100)
                             : 0)
                         );
                       }, 0)
                       .toFixed(2)}
                   </span>
                 </ListGroup.Item>
-                <ListGroup.Item className='d-flex justify-content-between py-2 px-0 border-0'>
-                  <span style={{ color: '#555' }}>Shipping</span>
-                  <span className='text-danger'>Calculated at checkout</span>
-                </ListGroup.Item>
-                <ListGroup.Item className='d-flex justify-content-between py-2 px-0 border-0'>
-                  <span style={{ color: '#555' }}>Tax</span>
-                  <span className='text-danger'>Calculated at checkout</span>
-                </ListGroup.Item>
+
                 <ListGroup.Item className='d-flex justify-content-between py-3 px-0 border-top'>
-                  <span className='fw-bold' style={{ color: '#333' }}>
-                    Estimated Total
-                  </span>
+                  <span className='fw-bold'>Estimated Total</span>
                   <span className='fw-bold' style={{ fontSize: '1.1rem' }}>
                     ₹
                     {cartItems
-                      .reduce((acc, item) => {
-                        const discountedPrice =
-                          item.discount > 0
-                            ? item.price * (1 - item.discount / 100)
-                            : item.price;
-                        return acc + item.qty * discountedPrice;
-                      }, 0)
+                      .reduce(
+                        (acc, item) =>
+                          acc + (item.qty || 1) * getDiscountedPrice(item),
+                        0
+                      )
                       .toFixed(2)}
                   </span>
                 </ListGroup.Item>
               </ListGroup>
-
-              {/* You can also show total savings if you want */}
-              {cartItems.some((item) => item.discount > 0) && (
-                <div className='text-end text-success small mt-2'>
-                  You save ₹
-                  {cartItems
-                    .reduce((acc, item) => {
-                      return (
-                        acc +
-                        (item.discount > 0
-                          ? item.qty * item.price * (item.discount / 100)
-                          : 0)
-                      );
-                    }, 0)
-                    .toFixed(2)}
-                </div>
-              )}
 
               <Button
                 variant='primary'
@@ -336,41 +318,11 @@ const CartScreen = () => {
                 className='w-100 mt-3 py-2'
                 disabled={cartItems.length === 0}
                 onClick={checkoutHandler}
-                style={{
-                  transition: 'all 0.3s ease',
-                  backgroundColor: '#FF5252',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontWeight: '600',
-                  letterSpacing: '0.5px',
-                  boxShadow: '0 2px 8px rgba(255, 82, 82, 0.3)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.backgroundColor = '#E64545';
-                  e.currentTarget.style.boxShadow =
-                    '0 4px 12px rgba(255, 82, 82, 0.4)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.backgroundColor = '#FF5252';
-                  e.currentTarget.style.boxShadow =
-                    '0 2px 8px rgba(255, 82, 82, 0.3)';
-                }}
               >
                 Proceed to Checkout
               </Button>
             </Card.Body>
           </Card>
-
-          {cartItems.length > 0 && (
-            <div className='mt-3 text-center'>
-              <Link to='/' className='text-decoration-none'>
-                <FaArrowLeft className='me-2' />
-                Continue Shopping
-              </Link>
-            </div>
-          )}
         </Col>
       </Row>
     </Container>

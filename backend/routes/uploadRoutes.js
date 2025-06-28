@@ -46,4 +46,26 @@ router.post('/', (req, res) => {
   });
 });
 
+// Add a new route for multiple images with color info
+const uploadMultipleImages = upload.array('images', 10); // Allow up to 10 images
+
+router.post('/multiple', (req, res) => {
+  uploadMultipleImages(req, res, function (err) {
+    if (err) {
+      return res.status(400).send({ message: err.message });
+    }
+
+    const images = req.files.map((file) => ({
+      url: `/${file.path}`,
+      color: req.body.color || null,
+      isVariantMain: req.body.isVariantMain || false,
+    }));
+
+    res.status(200).send({
+      message: 'Images uploaded successfully',
+      images: images,
+    });
+  });
+});
+
 export default router;

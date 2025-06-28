@@ -1,50 +1,120 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { updateCart } from '../utils/cartUtils';
 
-const initialState = localStorage.getItem('cart')
-  ? JSON.parse(localStorage.getItem('cart'))
-  : { cartItems: [], shippingAddress: {}, paymentMethod: 'PayPal' };
+const initialState = (() => {
+  try {
+    return localStorage.getItem('cart')
+      ? JSON.parse(localStorage.getItem('cart'))
+      : { cartItems: [], shippingAddress: {}, paymentMethod: 'COD' };
+  } catch (error) {
+    console.error('Failed to parse cart from localStorage', error);
+    return { cartItems: [], shippingAddress: {}, paymentMethod: 'COD' };
+  }
+})();
 
 const cartSlice = createSlice({
   name: 'cart',
   initialState,
   reducers: {
     addToCart: (state, action) => {
-      // NOTE: we don't need user, rating, numReviews or reviews
-      // in the cart
-      const { user, rating, numReviews, reviews, ...item } = action.payload;
+      const item = action.payload;
 
-      const existItem = state.cartItems.find((x) => x._id === item._id);
+      // Validate and ensure minimum quantity of 1
+      const quantity = Math.max(Number(item.qty) || 1, 1);
 
-      if (existItem) {
-        state.cartItems = state.cartItems.map((x) =>
-          x._id === existItem._id ? item : x
-        );
+      // Create complete cart item with all necessary fields
+      const cartItem = {
+        ...item, // Spread all original properties
+        qty: quantity,
+        productId: item._id,
+        price: item.variant?.price || item.basePrice || item.price,
+        countInStock: item.variant?.stock || item.countInStock || 0,
+        variant: item.variant
+          ? {
+              size: item.variant.size,
+              color: item.variant.color,
+              price: item.variant.price,
+              // sku: item.variant.sku,
+              stock: item.variant.stock,
+            }
+          : undefined,
+      };
+
+      // Find existing item index
+      const existIndex = state.cartItems.findIndex(
+        (x) =>
+          x._id === item._id &&
+          ((!x.variant && !item.variant) ||
+            (x.variant &&
+              item.variant &&
+              x.variant.size === item.variant.size &&
+              x.variant.color === item.variant.color))
+      );
+
+      if (existIndex >= 0) {
+        // Update existing item completely
+        state.cartItems[existIndex] = cartItem;
       } else {
-        state.cartItems = [...state.cartItems, item];
+        // Add new item
+        state.cartItems.push(cartItem);
       }
 
-      return updateCart(state, item);
+      return updateCart(state);
     },
     removeFromCart: (state, action) => {
-      state.cartItems = state.cartItems.filter((x) => x._id !== action.payload);
+      const { productId, variantKey } = action.payload;
+
+      state.cartItems = state.cartItems.filter((item) => {
+        // If we're removing a variant item
+        if (variantKey) {
+          const [variantSize, variantColor] = variantKey.split('-');
+          return !(
+            item.productId === productId &&
+            item.variant?.size === variantSize &&
+            item.variant?.color === variantColor
+          );
+        }
+        // If we're removing a non-variant item
+        return item.productId !== productId || item.variant;
+      });
+
       return updateCart(state);
     },
     saveShippingAddress: (state, action) => {
       state.shippingAddress = action.payload;
-      localStorage.setItem('cart', JSON.stringify(state));
+      return updateCart(state);
     },
     savePaymentMethod: (state, action) => {
       state.paymentMethod = action.payload;
-      localStorage.setItem('cart', JSON.stringify(state));
+      return updateCart(state);
     },
-    clearCartItems: (state, action) => {
+    clearCartItems: (state) => {
       state.cartItems = [];
-      localStorage.setItem('cart', JSON.stringify(state));
+      return updateCart(state);
     },
-    // NOTE: here we need to reset state for when a user logs out so the next
-    // user doesn't inherit the previous users cart and shipping
-    resetCart: (state) => (state = initialState),
+    resetCart: () => initialState,
+    updateCartItemQty: (state, action) => {
+      const { productId, variantKey, qty } = action.payload;
+      const newQty = Math.max(Number(qty), 1);
+
+      state.cartItems = state.cartItems.map((item) => {
+        if (variantKey) {
+          const [size, color] = variantKey.split('-');
+          if (
+            item.productId === productId &&
+            item.variant?.size === size &&
+            item.variant?.color === color
+          ) {
+            return { ...item, qty: Math.min(newQty, item.countInStock) };
+          }
+        } else if (item.productId === productId && !item.variant) {
+          return { ...item, qty: Math.min(newQty, item.countInStock) };
+        }
+        return item;
+      });
+
+      return updateCart(state);
+    },
   },
 });
 
@@ -55,6 +125,7 @@ export const {
   savePaymentMethod,
   clearCartItems,
   resetCart,
+  updateCartItemQty,
 } = cartSlice.actions;
 
 export default cartSlice.reducer;

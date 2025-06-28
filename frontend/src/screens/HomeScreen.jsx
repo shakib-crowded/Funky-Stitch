@@ -28,6 +28,22 @@ const HomeScreen = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const { keyword: urlKeyword } = useParams();
+  const decodedKeyword = urlKeyword ? decodeURIComponent(urlKeyword) : '';
+
+  // Add this effect to scroll to products when a search is performed
+  useEffect(() => {
+    if (decodedKeyword) {
+      const timer = setTimeout(() => {
+        const productsSection = document.querySelector('.product-section');
+        if (productsSection) {
+          productsSection.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [decodedKeyword]);
+
   return (
     <div className='home-screen'>
       <HeroSection />

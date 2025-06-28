@@ -1,6 +1,6 @@
 import { Table, Button, Row, Col } from 'react-bootstrap';
 import { FaEdit, FaPlus, FaTrash } from 'react-icons/fa';
-import { Link, useParams } from 'react-router-dom';
+import { Link, Navigate, useParams } from 'react-router-dom';
 import Message from '../../components/Message';
 import Loader from '../../components/Loader';
 import Paginate from '../../components/Paginate';
@@ -38,8 +38,22 @@ const ProductListScreen = () => {
   const createProductHandler = async () => {
     if (window.confirm('Are you sure you want to create a new product?')) {
       try {
-        await createProduct();
-        refetch();
+        const { data: createdProduct } = await createProduct({
+          name: 'New Product',
+          basePrice: 0,
+          discount: 0,
+          image: '/images/sample.jpg',
+          brand: 'Sample Brand',
+          category: 'Sample Category',
+          description: 'Sample Description',
+          variants: [],
+          availableSizes: ['s', 'm', 'l', 'xl'],
+          availableColors: ['black', 'white'],
+        }).unwrap();
+
+        toast.success('Product created');
+        Navigate(`/admin/product/${createdProduct._id}/edit`);
+        // Navigate
       } catch (err) {
         toast.error(err?.data?.message || err.error);
       }
@@ -76,6 +90,9 @@ const ProductListScreen = () => {
                 <th>DISCOUNT</th>
                 <th>CATEGORY</th>
                 <th>BRAND</th>
+                <th>VARIANTS</th>
+                <th>STOCK</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -83,10 +100,18 @@ const ProductListScreen = () => {
                 <tr key={product._id}>
                   <td>{product._id}</td>
                   <td>{product.name}</td>
-                  <td>&#8377;{product.price}</td>
+                  <td>&#8377;{product.basePrice}</td>
                   <td>&#8377;{product.discount}</td>
                   <td>{product.category}</td>
                   <td>{product.brand}</td>
+                  <td>
+                    {product.variants.length > 0 ? (
+                      <span>{product.variants.length} combinations</span>
+                    ) : (
+                      <span className='text-muted'>No variants</span>
+                    )}
+                  </td>
+                  <td>{product.totalStock}</td>
                   <td>
                     <Button
                       as={Link}

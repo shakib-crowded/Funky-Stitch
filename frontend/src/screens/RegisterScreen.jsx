@@ -20,10 +20,11 @@ import {
 import { setCredentials } from '../slices/authSlice';
 
 const RegisterScreen = () => {
-  const [step, setStep] = useState(1); // 1: Registration form, 2: OTP verification
+  const [step, setStep] = useState(1); // 1: Registration form, 2: Email OTP verification
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
     password: '',
     confirmPassword: '',
   });
@@ -54,10 +55,6 @@ const RegisterScreen = () => {
     });
   };
 
-  const handleOtpChange = (e) => {
-    setOtp(e.target.value);
-  };
-
   const submitRegistration = async (e) => {
     e.preventDefault();
     const form = e.currentTarget;
@@ -73,10 +70,16 @@ const RegisterScreen = () => {
       return;
     }
 
+    if (!formData.phone || !/^\d{10}$/.test(formData.phone)) {
+      toast.error('Please enter a valid 10-digit phone number');
+      return;
+    }
+
     try {
       const res = await register({
         name: formData.name,
         email: formData.email,
+        phone: formData.phone,
         password: formData.password,
       }).unwrap();
 
@@ -171,6 +174,27 @@ const RegisterScreen = () => {
                     </FloatingLabel>
 
                     <FloatingLabel
+                      controlId='phone'
+                      label='Phone Number'
+                      className='mb-3'
+                    >
+                      <Form.Control
+                        type='tel'
+                        name='phone'
+                        placeholder='9876543210'
+                        required
+                        minLength={10}
+                        maxLength={10}
+                        value={formData.phone}
+                        onChange={handleChange}
+                        className='py-3'
+                      />
+                      <Form.Control.Feedback type='invalid'>
+                        Please provide a 10-digit phone number.
+                      </Form.Control.Feedback>
+                    </FloatingLabel>
+
+                    <FloatingLabel
                       controlId='password'
                       label='Password'
                       className='mb-3'
@@ -188,9 +212,6 @@ const RegisterScreen = () => {
                       <Form.Control.Feedback type='invalid'>
                         Password must be at least 6 characters.
                       </Form.Control.Feedback>
-                      <Form.Text className='text-muted'>
-                        At least 6 characters
-                      </Form.Text>
                     </FloatingLabel>
 
                     <FloatingLabel
@@ -219,12 +240,6 @@ const RegisterScreen = () => {
                         type='submit'
                         disabled={isLoading}
                         className='py-2 fw-medium'
-                        style={{
-                          backgroundColor: '#FF5252',
-                          border: 'none',
-                          borderRadius: '8px',
-                          transition: 'all 0.3s ease',
-                        }}
                       >
                         {isLoading ? (
                           <Loader size='sm' />
@@ -240,7 +255,7 @@ const RegisterScreen = () => {
               ) : (
                 <>
                   <div className='text-center mb-4'>
-                    <FaCheckCircle size={48} className='text-success mb-3' />
+                    <FaCheckCircle size={48} className='text-primary mb-3' />
                     <h2 className='fw-bold' style={{ color: '#2c3e50' }}>
                       Verify Your Email
                     </h2>
@@ -261,7 +276,7 @@ const RegisterScreen = () => {
                         required
                         maxLength={6}
                         value={otp}
-                        onChange={handleOtpChange}
+                        onChange={(e) => setOtp(e.target.value)}
                         className='py-3 text-center'
                       />
                     </FloatingLabel>
@@ -272,11 +287,6 @@ const RegisterScreen = () => {
                         type='submit'
                         disabled={isVerifying}
                         className='py-2 fw-medium'
-                        style={{
-                          backgroundColor: '#FF5252',
-                          border: 'none',
-                          borderRadius: '8px',
-                        }}
                       >
                         {isVerifying ? <Loader size='sm' /> : 'Verify OTP'}
                       </Button>
@@ -295,21 +305,19 @@ const RegisterScreen = () => {
                 </>
               )}
 
-              <div className='text-center pt-3 border-top'>
-                <p className='text-muted mb-2'>Already have an account?</p>
-                <Button
-                  as={Link}
-                  to={redirect ? `/login?redirect=${redirect}` : '/login'}
-                  variant='outline-primary'
-                  className='d-flex align-items-center justify-content-center mx-auto'
-                  style={{
-                    borderRadius: '8px',
-                    width: 'fit-content',
-                  }}
-                >
-                  <FaSignInAlt className='me-2' /> Sign In
-                </Button>
-              </div>
+              {step === 1 && (
+                <div className='text-center pt-3 border-top'>
+                  <p className='text-muted mb-2'>Already have an account?</p>
+                  <Button
+                    as={Link}
+                    to={redirect ? `/login?redirect=${redirect}` : '/login'}
+                    variant='outline-primary'
+                    className='d-flex align-items-center justify-content-center mx-auto'
+                  >
+                    <FaSignInAlt className='me-2' /> Sign In
+                  </Button>
+                </div>
+              )}
             </Card.Body>
           </Card>
         </Col>

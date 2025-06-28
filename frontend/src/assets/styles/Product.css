@@ -70,7 +70,7 @@
 }
 
 .badge.discount {
-  background: #e74c3c;
+  background: #60ae44;
 }
 
 .badge.out-of-stock {
@@ -167,13 +167,32 @@
 .current-price {
   font-size: 18px;
   font-weight: 700;
-  color: #ff5252;
+  color: #60ae44;
 }
 
 .original-price {
   font-size: 14px;
-  color: #95a5a6;
+  color: #ff5252;
   text-decoration: line-through;
+}
+
+.product-card.no-variants {
+  opacity: 0.8;
+  filter: grayscale(20%);
+}
+
+.product-card.no-variants .product-title a {
+  color: #666;
+}
+
+.badge.warning {
+  background-color: #ffc107;
+  color: #000;
+}
+
+.price-container .not-available {
+  color: #dc3545;
+  font-style: italic;
 }
 
 /* Responsive Adjustments */

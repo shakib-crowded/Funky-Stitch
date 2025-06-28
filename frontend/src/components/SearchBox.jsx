@@ -17,7 +17,7 @@ const SearchBox = ({ mobile = false }) => {
   const submitHandler = (e) => {
     e.preventDefault();
     if (keyword.trim()) {
-      navigate(`/search/${keyword.trim()}`);
+      navigate(`/search/${encodeURIComponent(keyword.trim())}`);
     } else {
       navigate('/');
     }

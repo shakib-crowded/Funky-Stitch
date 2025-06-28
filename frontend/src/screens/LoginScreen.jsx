@@ -52,6 +52,7 @@ const LoginScreen = () => {
       navigate(redirect);
       toast.success('Login successful!');
     } catch (err) {
+      console.log(err);
       toast.error(err?.data?.message || err.error);
     }
   };
@@ -141,7 +142,7 @@ const LoginScreen = () => {
 
                 <div className='text-center mb-3'>
                   <Link
-                    // to='/forgot-password'
+                    to='/forgot-password'
                     className='text-decoration-none'
                     style={{ color: '#FF5252' }}
                   >

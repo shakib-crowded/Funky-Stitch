@@ -1,35 +1,41 @@
-export const addDecimals = (num) => {
-  return (Math.round(num * 100) / 100).toFixed(2);
-};
-
-// NOTE: the code below has been changed from the course code to fix an issue
-// with type coercion of strings to numbers.
-// Our addDecimals function expects a number and returns a string, so it is not
-// correct to call it passing a string as the argument.
-
 export const updateCart = (state) => {
-  // Calculate the items price in whole number (pennies) to avoid issues with
-  // floating point number calculations
-  const itemsPrice = state.cartItems.reduce(
-    (acc, item) => acc + (item.price * 100 * item.qty) / 100,
-    0
+  // Calculate items price with discount
+  // Round all prices to 2 decimal places
+  const itemsPrice = parseFloat(
+    state.cartItems
+      .reduce((acc, item) => {
+        const price = Number(item.price) || 0;
+        const qty = Number(item.qty) || 0;
+        const discount = Math.min(Math.max(Number(item.discount) || 0, 0), 100);
+        return acc + price * qty * (1 - discount / 100);
+      }, 0)
+      .toFixed(2)
   );
-  state.itemsPrice = addDecimals(itemsPrice);
 
-  // Calculate the shipping price
-  const shippingPrice = itemsPrice > 100 ? 0 : 10;
-  state.shippingPrice = addDecimals(shippingPrice);
+  // Shipping price (free over 1000)
+  const shippingPrice = itemsPrice > 1000 ? 0 : 10;
 
-  // Calculate the tax price
-  const taxPrice = 0.15 * itemsPrice;
-  state.taxPrice = addDecimals(taxPrice);
+  // Tax calculation (18%)
+  const taxPrice = itemsPrice * 0.18;
 
+  // Total price
   const totalPrice = itemsPrice + shippingPrice + taxPrice;
-  // Calculate the total price
-  state.totalPrice = addDecimals(totalPrice);
 
-  // Save the cart to localStorage
+  // Discount amount
+  const discountAmount = state.cartItems.reduce((acc, item) => {
+    const price = Number(item.price) || 0;
+    const qty = Number(item.qty) || 0;
+    const discount = Math.min(Math.max(Number(item.discount) || 0, 0), 100);
+    return acc + price * qty * (discount / 100);
+  }, 0);
+
+  // Update state
+  state.itemsPrice = itemsPrice;
+  state.shippingPrice = shippingPrice;
+  state.taxPrice = taxPrice;
+  state.totalPrice = totalPrice;
+  state.discountAmount = discountAmount;
+
   localStorage.setItem('cart', JSON.stringify(state));
-
   return state;
 };

@@ -32,30 +32,54 @@ const PlaceOrderScreen = () => {
     }
   }, [cart.paymentMethod, cart.shippingAddress.address, navigate]);
 
-  // Calculate discount if not already in cart state
+  // Helper function to get item price (considers variant price if exists)
+  const getItemPrice = (item) => {
+    return item.variant?.price || item.basePrice || item.price;
+  };
+
+  // Calculate discount amount
   const calculateDiscount = () => {
     return cart.cartItems.reduce((acc, item) => {
+      const price = getItemPrice(item);
       return (
-        acc +
-        (item.discount > 0 ? item.qty * item.price * (item.discount / 100) : 0)
+        acc + (item.discount > 0 ? item.qty * price * (item.discount / 100) : 0)
       );
     }, 0);
   };
 
   const discountAmount = cart.discount ?? calculateDiscount();
 
+  // Calculate items price (before discount)
+  const calculateItemsPrice = () => {
+    return cart.cartItems.reduce(
+      (acc, item) => acc + item.qty * getItemPrice(item),
+      0
+    );
+  };
+
+  const itemsPrice = cart.itemsPrice ?? calculateItemsPrice();
+
   // Calculate discounted items price
   const calculateDiscountedItemsPrice = () => {
     return cart.cartItems.reduce((acc, item) => {
+      const price = getItemPrice(item);
       const discountedPrice =
-        item.discount > 0 ? item.price * (1 - item.discount / 100) : item.price;
+        item.discount > 0 ? price * (1 - item.discount / 100) : price;
       return acc + item.qty * discountedPrice;
     }, 0);
   };
 
-  const discountedItemsPrice = cart.itemsPrice - discountAmount;
+  const discountedItemsPrice = calculateDiscountedItemsPrice();
 
-  // Ensure prices are numbers and format them
+  // Calculate total price
+  const calculateTotalPrice = () => {
+    return (
+      discountedItemsPrice + (cart.shippingPrice || 0) + (cart.taxPrice || 0)
+    );
+  };
+
+  const totalPrice = calculateTotalPrice();
+
   const formatPrice = (price) => {
     const num = Number(price) || 0;
     return num.toFixed(2);
@@ -64,15 +88,25 @@ const PlaceOrderScreen = () => {
   const placeOrderHandler = async () => {
     try {
       const res = await createOrder({
-        orderItems: cart.cartItems,
+        orderItems: cart.cartItems.map((item) => ({
+          ...item,
+          price: getItemPrice(item), // Ensure we're using the correct price (variant or base)
+          variant: item.variant
+            ? {
+                size: item.variant.size,
+                color: item.variant.color,
+              }
+            : undefined,
+        })),
         shippingAddress: cart.shippingAddress,
         paymentMethod: cart.paymentMethod,
-        itemsPrice: cart.itemsPrice,
+        itemsPrice: itemsPrice,
         shippingPrice: cart.shippingPrice,
         discount: discountAmount,
         taxPrice: cart.taxPrice,
-        totalPrice: cart.totalPrice - discountAmount, // Apply discount to total
+        totalPrice: totalPrice,
       }).unwrap();
+
       dispatch(clearCartItems());
       navigate(`/order/${res._id}`);
     } catch (err) {
@@ -116,59 +150,77 @@ const PlaceOrderScreen = () => {
                 <Message>Your cart is empty</Message>
               ) : (
                 <ListGroup variant='flush'>
-                  {cart.cartItems.map((item, index) => (
-                    <ListGroup.Item key={index} className='py-3 border-bottom'>
-                      <Row className='align-items-center'>
-                        <Col xs={2} md={1}>
-                          <Image
-                            src={item.image}
-                            alt={item.name}
-                            fluid
-                            rounded
-                            className='shadow-sm'
-                          />
-                        </Col>
-                        <Col xs={6} md={7}>
-                          <Link
-                            to={`/product/${item.product}`}
-                            className='text-decoration-none fw-medium'
-                          >
-                            {item.name}
-                          </Link>
-                          {item.discount > 0 && (
-                            <Badge bg='danger' className='ms-2'>
-                              {item.discount}% OFF
-                            </Badge>
-                          )}
-                        </Col>
-                        <Col xs={4} md={4} className='text-end'>
-                          <span className='text-muted'>
-                            {item.qty} ×
-                            {item.discount > 0 ? (
-                              <>
-                                <span className='text-decoration-line-through text-muted me-1'>
-                                  ₹{formatPrice(item.price)}
-                                </span>
-                                ₹
-                                {formatPrice(
-                                  item.price * (1 - item.discount / 100)
-                                )}
-                              </>
-                            ) : (
-                              `₹${formatPrice(item.price)}`
+                  {cart.cartItems.map((item, index) => {
+                    const price = getItemPrice(item);
+                    const discountedPrice =
+                      item.discount > 0
+                        ? price * (1 - item.discount / 100)
+                        : price;
+
+                    return (
+                      <ListGroup.Item
+                        key={index}
+                        className='py-3 border-bottom'
+                      >
+                        <Row className='align-items-center'>
+                          <Col xs={2} md={1}>
+                            <Image
+                              src={item.image}
+                              alt={item.name}
+                              fluid
+                              rounded
+                              className='shadow-sm'
+                            />
+                          </Col>
+                          <Col xs={6} md={7}>
+                            <Link
+                              to={`/product/${item.product}`}
+                              className='text-decoration-none fw-medium'
+                            >
+                              {item.name}
+                            </Link>
+                            {item.variant && (
+                              <div className='mt-1'>
+                                <Badge bg='light' text='dark' className='me-1'>
+                                  {item.variant.size.toUpperCase()}
+                                </Badge>
+                                <Badge
+                                  bg='light'
+                                  text='dark'
+                                  style={{
+                                    backgroundColor: item.variant.color,
+                                  }}
+                                >
+                                  {item.variant.color}
+                                </Badge>
+                              </div>
                             )}
-                            = ₹
-                            {formatPrice(
-                              item.qty *
-                                (item.discount > 0
-                                  ? item.price * (1 - item.discount / 100)
-                                  : item.price)
+                            {item.discount > 0 && (
+                              <Badge bg='danger' className='ms-2'>
+                                {item.discount}% OFF
+                              </Badge>
                             )}
-                          </span>
-                        </Col>
-                      </Row>
-                    </ListGroup.Item>
-                  ))}
+                          </Col>
+                          <Col xs={4} md={4} className='text-end'>
+                            <span className='text-muted'>
+                              {item.qty} ×
+                              {item.discount > 0 ? (
+                                <>
+                                  <span className='text-decoration-line-through text-muted me-1'>
+                                    ₹{formatPrice(price)}
+                                  </span>
+                                  ₹{formatPrice(discountedPrice)}
+                                </>
+                              ) : (
+                                `₹${formatPrice(price)}`
+                              )}
+                              = ₹{formatPrice(item.qty * discountedPrice)}
+                            </span>
+                          </Col>
+                        </Row>
+                      </ListGroup.Item>
+                    );
+                  })}
                 </ListGroup>
               )}
             </Card.Body>
@@ -176,10 +228,7 @@ const PlaceOrderScreen = () => {
         </Col>
 
         <Col lg={4}>
-          <Card
-            className='border-0 shadow-sm sticky-top'
-            style={{ top: '20px' }}
-          >
+          <Card className='border-0 shadow-sm' style={{ top: '20px' }}>
             <Card.Body>
               <h3 className='mb-3 fw-bold' style={{ color: '#2c3e50' }}>
                 Order Summary
@@ -188,10 +237,9 @@ const PlaceOrderScreen = () => {
               <ListGroup variant='flush'>
                 <ListGroup.Item className='d-flex justify-content-between py-2 px-0 border-0'>
                   <span>Items</span>
-                  <span>₹{formatPrice(cart.itemsPrice)}</span>
+                  <span>₹{formatPrice(itemsPrice)}</span>
                 </ListGroup.Item>
 
-                {/* Add Discount row if there's any discount */}
                 {discountAmount > 0 && (
                   <ListGroup.Item className='d-flex justify-content-between py-2 px-0 border-0'>
                     <span>Discount</span>
@@ -213,12 +261,11 @@ const PlaceOrderScreen = () => {
                 <ListGroup.Item className='d-flex justify-content-between py-3 px-0 border-top'>
                   <span className='fw-bold'>Total</span>
                   <span className='fw-bold' style={{ color: '#FF5252' }}>
-                    ₹{formatPrice(cart.totalPrice - discountAmount)}
+                    ₹{formatPrice(totalPrice)}
                   </span>
                 </ListGroup.Item>
               </ListGroup>
 
-              {/* Show savings if there's discount */}
               {discountAmount > 0 && (
                 <div className='text-center text-success small mt-2'>
                   You saved ₹{formatPrice(discountAmount)} on this order

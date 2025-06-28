@@ -3,6 +3,8 @@ import generateToken from '../utils/generateToken.js';
 import User from '../models/userModel.js';
 import TempUser from '../models/tempUserModel.js';
 import sendOTPEmail from '../utils/email.js';
+import nodemailer from 'nodemailer';
+import crypto from 'crypto';
 
 // @desc    Auth user & get token
 // @route   POST /api/users/auth
@@ -31,90 +33,252 @@ const authUser = asyncHandler(async (req, res) => {
 // @route   POST /api/users/register
 // @access  Public
 const registerUser = asyncHandler(async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, phone, password } = req.body;
 
-  const userExists = await User.findOne({ email });
-  if (userExists) {
+  // Validate required fields
+  if (!name || !email || !phone || !password) {
     res.status(400);
-    throw new Error('User already exists');
+    throw new Error('Please fill all fields');
   }
 
-  // Generate new OTP and expiry
-  const otp = Math.floor(100000 + Math.random() * 900000);
+  // Validate phone number format
+  if (!/^\d{10}$/.test(phone)) {
+    res.status(400);
+    throw new Error('Please enter a valid 10-digit phone number');
+  }
+
+  // Check if user already exists
+  const userExists = await User.findOne({ $or: [{ email }, { phone }] });
+  if (userExists) {
+    res.status(400);
+    throw new Error('User with this email or phone already exists');
+  }
+
+  // Generate OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const otpExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
-  // Check if TempUser exists
-  let tempUser = await TempUser.findOne({ email });
+  try {
+    // Delete any existing temp user
+    await TempUser.deleteOne({ $or: [{ email }, { phone }] });
 
-  if (tempUser) {
-    // Update existing temp user with new OTP and password (optional: overwrite name too)
-    tempUser.otp = otp;
-    tempUser.otpExpiry = otpExpiry;
-    tempUser.password = password;
-    tempUser.name = name;
-    await tempUser.save();
-  } else {
     // Create new temp user
-    tempUser = await TempUser.create({
+    const tempUser = await TempUser.create({
       name,
       email,
+      phone,
       password,
       otp,
       otpExpiry,
     });
+
+    // Send email OTP
+    await sendOTPEmail(email, otp);
+
+    res.status(200).json({
+      success: true,
+      message: 'OTP sent to email',
+      tempUserId: tempUser._id,
+      email,
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500);
+    throw new Error(error.message || 'Registration failed. Please try again.');
   }
-
-  // Send OTP
-  sendOTPEmail(email, otp);
-
-  res.status(200).json({
-    message: 'OTP sent to email',
-    email,
-    tempUserId: tempUser._id,
-  });
 });
-
 // @desc    Verify OTP and complete registration
 // @route   POST /api/users/verify-otp
 // @access  Public
 const verifyOTP = asyncHandler(async (req, res) => {
   const { tempUserId, otp, email } = req.body;
 
+  if (!tempUserId || !otp || !email) {
+    res.status(400);
+    throw new Error('Missing required fields');
+  }
+
   const tempUser = await TempUser.findOne({
     _id: tempUserId,
     email,
-    otpExpiry: { $gt: Date.now() },
+    otpExpiry: { $gt: new Date() }, // Check expiry
   });
 
-  if (!tempUser || tempUser.otp !== otp) {
+  if (!tempUser) {
     res.status(400);
-    throw new Error('Invalid OTP or OTP expired');
+    throw new Error('OTP expired or invalid request');
   }
 
-  // Create the actual user
-  const user = await User.create({
-    name: tempUser.name,
-    email: tempUser.email,
-    password: tempUser.password,
-  });
+  if (tempUser.otp !== otp) {
+    res.status(400);
+    throw new Error('Invalid OTP');
+  }
 
-  if (user) {
-    generateToken(res, user._id);
+  try {
+    // Create permanent user
+    const user = await User.create({
+      name: tempUser.name,
+      email: tempUser.email,
+      phone: tempUser.phone, // Now saving phone number
+      password: tempUser.password,
+      isVerified: true,
+    });
 
-    // Clean up - delete temp user
+    // Generate auth token
+    const token = generateToken(res, user._id);
+
+    // Clean up temp user
     await TempUser.deleteOne({ _id: tempUserId });
 
     res.status(201).json({
       _id: user._id,
       name: user.name,
       email: user.email,
+      phone: user.phone, // Return phone in response
       isAdmin: user.isAdmin,
+      token,
     });
-  } else {
-    res.status(400);
-    throw new Error('Invalid user data');
+  } catch (error) {
+    console.error('Verification error:', error);
+    res.status(500);
+    throw new Error('User creation failed. Please try again.');
   }
 });
+
+// @desc    Forgot password
+// @route   POST /api/users/forgot-password
+// @access  Public
+// backend/controllers/userController.js
+const forgotPassword = asyncHandler(async (req, res) => {
+  const email =
+    typeof req.body.email === 'string'
+      ? req.body.email // Normal case
+      : req.body.email?.email;
+
+  if (!email) {
+    res.status(400);
+    throw new Error('Please provide an email address');
+  }
+
+  try {
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      // Don't reveal if user doesn't exist (security best practice)
+      return res.status(200).json({
+        success: true,
+        message:
+          'If an account exists with this email, a reset link has been sent',
+      });
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    const resetTokenExpiry = Date.now() + 30 * 60 * 1000; // 30 minutes
+
+    // Update user with reset token
+    try {
+      user.resetPasswordToken = resetToken;
+      user.resetPasswordExpires = resetTokenExpiry;
+      await user.save();
+    } catch (dbError) {
+      console.error('Database save error:', dbError);
+      res.status(500);
+      throw new Error('Failed to save reset token');
+    }
+
+    // Create reset URL (use your frontend URL)
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+
+    // Configure email transporter
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    // Email content
+    const mailOptions = {
+      from: `"Funky Stitch" <${process.env.EMAIL_USER}>`,
+      to: user.email,
+      subject: 'Password Reset Request',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Password Reset Request</h2>
+          <p>You requested to reset your password for your account with email: <strong>${user.email}</strong>.</p>
+          <p>Please click the button below to reset your password:</p>
+          <div style="text-align: center; margin: 25px 0;">
+            <a href="${resetUrl}" style="background-color:#FF5252; color: white; padding: 12px 20px; text-decoration: none; border-radius: 4px;">
+              Reset Password
+            </a>
+          </div>
+          <p>This link will expire in 30 minutes.</p>
+          <p>If you didn't request this password reset, please ignore this email.</p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+          <p style="font-size: 12px; color: #777;">This is an automated message, please do not reply.</p>
+        </div>
+      `,
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+      res.status(200).json({
+        success: true,
+        message: 'Password reset email sent',
+      });
+    } catch (emailError) {
+      console.error('Email send error:', emailError);
+
+      // Rollback the token if email fails
+      try {
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpires = undefined;
+        await user.save();
+      } catch (rollbackError) {
+        console.error('Failed to rollback reset token:', rollbackError);
+      }
+
+      res.status(500);
+      throw new Error('Email could not be sent');
+    }
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500);
+    throw new Error('An error occurred during the password reset process');
+  }
+});
+// @desc    Reset password
+// @route   PUT /api/users/reset-password/:token
+// @access  Public
+const resetPassword = asyncHandler(async (req, res) => {
+  const { token } = req.params;
+  const { password } = req.body;
+
+  // Find user by token and check expiry
+  const user = await User.findOne({
+    resetPasswordToken: token,
+    resetPasswordExpires: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    res.status(400);
+    throw new Error('Invalid or expired token');
+  }
+
+  // Update password and clear reset token
+  user.password = password;
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpires = undefined;
+  await user.save();
+
+  res.status(200).json({
+    success: true,
+    message: 'Password updated successfully',
+  });
+});
+
 // @desc    Logout user / clear cookie
 // @route   POST /api/users/logout
 // @access  Public
@@ -135,6 +299,7 @@ const getUserProfile = asyncHandler(async (req, res) => {
       name: user.name,
       email: user.email,
       isAdmin: user.isAdmin,
+      phone: user.phone,
     });
   } else {
     res.status(404);
@@ -236,8 +401,6 @@ const updateUser = asyncHandler(async (req, res) => {
 });
 
 // controllers/contactController.js
-import nodemailer from 'nodemailer';
-
 const contactUs = async (req, res) => {
   const { name, email, subject, message } = req.body;
 
@@ -306,4 +469,6 @@ export {
   updateUser,
   contactUs,
   verifyOTP,
+  forgotPassword,
+  resetPassword,
 };

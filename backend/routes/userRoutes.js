@@ -11,6 +11,8 @@ import {
   updateUser,
   contactUs,
   verifyOTP,
+  forgotPassword,
+  resetPassword,
 } from '../controllers/userController.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
 
@@ -19,6 +21,8 @@ const router = express.Router();
 router.route('/').post(registerUser).get(protect, admin, getUsers);
 router.post('/auth', authUser);
 router.post('/verify-otp', verifyOTP);
+router.post('/forgot-password', forgotPassword);
+router.put('/reset-password/:token', resetPassword);
 router.post('/logout', logoutUser);
 
 router

@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import asyncHandler from '../middleware/asyncHandler.js';
 import Order from '../models/orderModel.js';
 import Product from '../models/productModel.js';
@@ -13,154 +14,300 @@ const addOrderItems = asyncHandler(async (req, res) => {
   if (orderItems && orderItems.length === 0) {
     res.status(400);
     throw new Error('No order items');
-  } else {
-    // NOTE: here we must assume that the prices from our client are incorrect.
-    // We must only trust the price of the item as it exists in
-    // our DB. This prevents a user paying whatever they want by hacking our client
-    // side code - https://gist.github.com/bushblade/725780e6043eaf59415fbaf6ca7376ff
+  }
 
-    // get the ordered items from our database
-    const itemsFromDB = await Product.find({
-      _id: { $in: orderItems.map((x) => x._id) },
-    });
+  // Get products from DB including variants
+  const itemsFromDB = await Product.find({
+    _id: { $in: orderItems.map((x) => x.productId || x._id) },
+  }).lean();
 
-    // map over the order items and use the price from our items from database
-    const dbOrderItems = orderItems.map((itemFromClient) => {
-      const matchingItemFromDB = itemsFromDB.find(
-        (itemFromDB) => itemFromDB._id.toString() === itemFromClient._id
+  // Map order items with verified prices and variants
+  const dbOrderItems = orderItems.map((itemFromClient) => {
+    const matchingProduct = itemsFromDB.find(
+      (prod) =>
+        prod._id.toString() === (itemFromClient.productId || itemFromClient._id)
+    );
+
+    if (!matchingProduct) {
+      throw new Error(`Product ${itemFromClient.productId} not found`);
+    }
+
+    // For variant products, find the specific variant
+    let variantPrice = matchingProduct.basePrice;
+    let variantDetails = null;
+
+    if (itemFromClient.variant) {
+      const matchedVariant = matchingProduct.variants.find(
+        (v) =>
+          v.size === itemFromClient.variant.size &&
+          v.color === itemFromClient.variant.color
       );
-      return {
-        ...itemFromClient,
-        product: itemFromClient._id,
-        price: matchingItemFromDB.price,
-        _id: undefined,
+
+      if (!matchedVariant) {
+        throw new Error(
+          `Variant not available for product ${matchingProduct._id}`
+        );
+      }
+
+      variantPrice = matchedVariant.price;
+      variantDetails = {
+        size: matchedVariant.size,
+        color: matchedVariant.color,
+        price: matchedVariant.price,
+        // sku:
+        //   matchedVariant.sku ||
+        //   `${matchingProduct._id}-${matchedVariant.size}-${matchedVariant.color}`,
       };
-    });
+    }
 
-    // calculate prices
-    const { itemsPrice, taxPrice, shippingPrice, totalPrice } =
-      calcPrices(dbOrderItems);
-
-    const order = new Order({
-      orderItems: dbOrderItems,
-      user: req.user._id,
-      shippingAddress,
-      paymentMethod,
-      itemsPrice,
-      taxPrice,
-      shippingPrice,
-      totalPrice,
-    });
-
-    const createdOrder = await order.save();
-
-    res.status(201).json(createdOrder);
-  }
-});
-
-// @desc    Get logged in user orders
-// @route   GET /api/orders/myorders
-// @access  Private
-const getMyOrders = asyncHandler(async (req, res) => {
-  const orders = await Order.find({ user: req.user._id });
-  res.json(orders);
-});
-
-// @desc    Get order by ID
-// @route   GET /api/orders/:id
-// @access  Private
-const getOrderById = asyncHandler(async (req, res) => {
-  const order = await Order.findById(req.params.id).populate(
-    'user',
-    'name email'
-  );
-
-  if (order) {
-    res.json(order);
-  } else {
-    res.status(404);
-    throw new Error('Order not found');
-  }
-});
-
-// @desc    Update order to paid
-// @route   PUT /api/orders/:id/pay
-// @access  Private
-const updateOrderToPaid = asyncHandler(async (req, res) => {
-  // NOTE: here we need to verify the payment was made to PayPal before marking
-  // the order as paid
-  const { verified, value } = await verifyPayPalPayment(req.body.id);
-  if (!verified) throw new Error('Payment not verified');
-
-  // check if this transaction has been used before
-  const isNewTransaction = await checkIfNewTransaction(Order, req.body.id);
-  if (!isNewTransaction) throw new Error('Transaction has been used before');
-
-  const order = await Order.findById(req.params.id);
-
-  if (order) {
-    // check the correct amount was paid
-    const paidCorrectAmount = order.totalPrice.toString() === value;
-    if (!paidCorrectAmount) throw new Error('Incorrect amount paid');
-
-    order.isPaid = true;
-    order.paidAt = Date.now();
-    order.paymentResult = {
-      id: req.body.id,
-      status: req.body.status,
-      update_time: req.body.update_time,
-      email_address: req.body.payer.email_address,
+    return {
+      ...itemFromClient,
+      product: matchingProduct._id,
+      name: matchingProduct.name,
+      image: matchingProduct.image,
+      price: variantPrice,
+      basePrice: matchingProduct.basePrice,
+      discount: itemFromClient.discount || matchingProduct.discount || 0,
+      brand: matchingProduct.brand,
+      category: matchingProduct.category,
+      variant: variantDetails,
+      _id: undefined,
     };
+  });
 
-    const updatedOrder = await order.save();
+  // Calculate prices with proper variant pricing
+  const { itemsPrice, taxPrice, shippingPrice, totalPrice, discountAmount } =
+    calcPrices(dbOrderItems);
 
-    res.json(updatedOrder);
-  } else {
-    res.status(404);
-    throw new Error('Order not found');
-  }
+  const order = new Order({
+    orderItems: dbOrderItems,
+    user: req.user._id,
+    shippingAddress,
+    paymentMethod,
+    itemsPrice,
+    taxPrice,
+    shippingPrice,
+    discountAmount,
+    totalPrice,
+  });
+
+  const createdOrder = await order.save();
+  res.status(201).json(createdOrder);
 });
 
 // @desc    Update order to delivered
-// @route   GET /api/orders/:id/deliver
+// @route   PUT /api/orders/:id/deliver
 // @access  Private/Admin
 const updateOrderToDelivered = asyncHandler(async (req, res) => {
   const order = await Order.findById(req.params.id);
-
-  if (order) {
-    order.status = 'Delivered';
-    order.isDelivered = true;
-    order.deliveredAt = Date.now();
-
-    const updatedOrder = await order.save();
-    res.json(updatedOrder);
-  } else {
+  if (!order) {
     res.status(404);
     throw new Error('Order not found');
   }
+
+  order.isDelivered = true;
+  order.isPaid = true;
+  order.deliveredAt = Date.now();
+  order.status = 'Delivered';
+
+  const updatedOrder = await order.save();
+  res.json(updatedOrder);
 });
 
-// @desc    Get all orders
-// @route   GET /api/orders
-// @access  Private/Admin
-const getOrders = asyncHandler(async (req, res) => {
-  const orders = await Order.find({}).populate('user', 'id name');
-  res.json(orders);
-});
-// @desc    Track order by ID
-// @route   GET /api/orders/track/:orderId
+// @desc    Get order by ID with variant details
+// @route   GET /api/orders/:id
 // @access  Private
-const trackOrder = asyncHandler(async (req, res) => {
-  const order = await Order.findById(req.params.orderId)
-    .populate('user', 'name email')
-    .populate('orderItems.product', 'name image');
+const getOrderById = asyncHandler(async (req, res) => {
+  const order = await Order.findById(req.params.id)
+    .populate('user', 'name email phone')
+    .populate('orderItems.product', 'name images variants');
 
   if (!order) {
     res.status(404);
     throw new Error('Order not found');
   }
 
-  // Only allow the order owner or admin to track
+  // Verify order ownership or admin status
+  if (
+    order.user._id.toString() !== req.user._id.toString() &&
+    !req.user.isAdmin
+  ) {
+    res.status(401);
+    throw new Error('Not authorized');
+  }
+  // Structure the response to include only necessary user data
+  const response = {
+    ...order.toObject(),
+    user: {
+      _id: order.user._id,
+      name: order.user.name,
+      email: order.user.email,
+      phone: order.user.phone, // Include phone in the response
+    },
+  };
+
+  res.json(response);
+});
+
+// @desc    Update order to paid with variant support
+// @route   PUT /api/orders/:id/pay
+// @access  Private
+const updateOrderToPaid = asyncHandler(async (req, res) => {
+  const { verified, value } = await verifyPayPalPayment(req.body.id);
+  if (!verified) throw new Error('Payment not verified');
+
+  const isNewTransaction = await checkIfNewTransaction(Order, req.body.id);
+  if (!isNewTransaction) throw new Error('Transaction has been used before');
+
+  const order = await Order.findById(req.params.id);
+  if (!order) {
+    res.status(404);
+    throw new Error('Order not found');
+  }
+
+  // Verify payment amount matches order total
+  const paidCorrectAmount = order.totalPrice.toString() === value;
+  if (!paidCorrectAmount) throw new Error('Incorrect amount paid');
+
+  // Update stock for each item (including variants)
+  for (const item of order.orderItems) {
+    const product = await Product.findById(item.product);
+    if (!product) continue;
+
+    if (item.variant) {
+      // Update variant stock
+      const variantIndex = product.variants.findIndex(
+        (v) => v.size === item.variant.size && v.color === item.variant.color
+      );
+
+      if (variantIndex >= 0) {
+        product.variants[variantIndex].stock -= item.qty;
+        product.totalStock -= item.qty;
+      }
+    } else {
+      // Update regular product stock
+      product.countInStock -= item.qty;
+    }
+
+    await product.save();
+  }
+
+  order.isPaid = true;
+  order.paidAt = Date.now();
+  order.status = 'Processing';
+  order.paymentResult = {
+    id: req.body.id,
+    status: req.body.status,
+    update_time: req.body.update_time,
+    email_address: req.body.payer.email_address,
+    amount: value,
+    currency: req.body.currency || 'USD',
+  };
+
+  const updatedOrder = await order.save();
+  res.json(updatedOrder);
+});
+
+// @desc    Update order to shipped
+// @route   PUT /api/orders/:id/ship
+// @access  Private/Admin
+const updateOrderToShipped = asyncHandler(async (req, res) => {
+  const { trackingNumber, carrier } = req.body;
+
+  const order = await Order.findById(req.params.id);
+  if (!order) {
+    res.status(404);
+    throw new Error('Order not found');
+  }
+
+  order.status = 'Shipped';
+  order.shippedAt = Date.now();
+  order.trackingNumber = trackingNumber;
+  order.carrier = carrier;
+
+  const updatedOrder = await order.save();
+  res.json(updatedOrder);
+});
+
+const getMyOrders = asyncHandler(async (req, res) => {
+  try {
+    const orders = await Order.find({ user: req.user._id })
+      .populate({
+        path: 'user',
+        select: 'name email',
+      })
+      .populate({
+        path: 'orderItems.product',
+        select: 'name image price variants',
+        model: 'Product', // Explicitly specify the model
+      })
+      .sort({ createdAt: -1 }) // Newest first
+      .lean();
+
+    if (!orders || orders.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'No orders found',
+        orders: [],
+      });
+    }
+
+    // Transform order items for better frontend consumption
+    const transformedOrders = orders.map((order) => ({
+      ...order,
+      orderItems: order.orderItems.map((item) => ({
+        ...item,
+        product: item.product || null,
+        variant: item.variant || null,
+        totalPrice: (item.price * item.qty * (1 - item.discount / 100)).toFixed(
+          2
+        ),
+      })),
+    }));
+
+    res.json({
+      success: true,
+      count: transformedOrders.length,
+      orders: transformedOrders,
+    });
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching orders',
+    });
+  }
+});
+// @desc    Get all orders (admin)
+// @route   GET /api/orders
+// @access  Private/Admin
+const getOrders = asyncHandler(async (req, res) => {
+  const orders = await Order.find({})
+    .populate('user', 'id name')
+    .populate('orderItems.product', 'name');
+  res.json(orders);
+});
+
+// @desc    Track order by ID with variant details
+// @route   GET /api/orders/track/:orderId
+// @access  Private
+const trackOrder = asyncHandler(async (req, res) => {
+  // Validate orderId format
+  if (!mongoose.Types.ObjectId.isValid(req.params.orderId)) {
+    res.status(400);
+    throw new Error('Invalid order ID format');
+  }
+
+  const order = await Order.findById(req.params.orderId)
+    .populate('user', 'name email')
+    .populate('orderItems.product', 'name image price variants');
+
+  if (!order) {
+    res.status(404);
+    throw new Error('Order not found');
+  }
+
+  // Verify order ownership or admin status
   if (
     order.user._id.toString() !== req.user._id.toString() &&
     !req.user.isAdmin
@@ -169,52 +316,62 @@ const trackOrder = asyncHandler(async (req, res) => {
     throw new Error('Not authorized to view this order');
   }
 
-  res.json({
+  // Enhanced response with all required fields
+  const response = {
     _id: order._id,
+    user: {
+      _id: order.user._id,
+      name: order.user.name,
+      email: order.user.email,
+    },
     status: order.status,
     createdAt: order.createdAt,
     shippedAt: order.shippedAt,
     deliveredAt: order.deliveredAt,
     trackingNumber: order.trackingNumber,
     carrier: order.carrier,
-    orderItems: order.orderItems,
+    orderItems: order.orderItems.map((item) => ({
+      product: item.product?._id,
+      name: item.name || item.product?.name,
+      image: item.image || item.product?.images?.[0],
+      price: item.price,
+      qty: item.qty,
+      variant: item.variant || undefined,
+      _id: item._id,
+    })),
     shippingAddress: order.shippingAddress,
+    itemsPrice: order.itemsPrice,
+    shippingPrice: order.shippingPrice,
+    taxPrice: order.taxPrice,
     totalPrice: order.totalPrice,
     isPaid: order.isPaid,
     paidAt: order.paidAt,
-  });
+    paymentMethod: order.paymentMethod,
+  };
+
+  res.json(response);
 });
 
-// @desc    Update order shipping info
-// @route   PUT /api/orders/:id/ship
-// @access  Private/Admin
-const updateOrderToShipped = asyncHandler(async (req, res) => {
-  const { trackingNumber, carrier } = req.body;
-
+const deleteOrder = asyncHandler(async (req, res) => {
   const order = await Order.findById(req.params.id);
 
   if (order) {
-    order.status = 'Shipped';
-    order.shippedAt = Date.now();
-    order.trackingNumber = trackingNumber;
-    order.carrier = carrier;
-
-    const updatedOrder = await order.save();
-    res.json(updatedOrder);
+    await Order.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Order removed' });
   } else {
     res.status(404);
     throw new Error('Order not found');
   }
 });
 
-// Update your exports
 export {
   addOrderItems,
   getMyOrders,
+  updateOrderToDelivered, // Add this line
   getOrderById,
   updateOrderToPaid,
-  updateOrderToDelivered,
-  updateOrderToShipped, // Add this
-  trackOrder, // Add this
+  updateOrderToShipped,
+  trackOrder,
   getOrders,
+  deleteOrder,
 };

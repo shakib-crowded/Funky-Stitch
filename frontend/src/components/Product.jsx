@@ -3,13 +3,57 @@ import { Card } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import Rating from './Rating';
 import '../assets/styles/Product.css';
+
 const Product = ({ product }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
 
+  // Calculate display price based on variants
+  const getDisplayPrice = () => {
+    if (!product.variants || product.variants.length === 0) {
+      return 'Not Available';
+    }
+
+    // Calculate prices with discount applied
+    const prices = product.variants.map((v) => v.price || product.basePrice);
+    const discountedPrices = prices.map((price) =>
+      product.discount > 0 ? price * (1 - product.discount / 100) : price
+    );
+
+    const minPrice = Math.min(...discountedPrices);
+    const maxPrice = Math.max(...discountedPrices);
+    const minOriginalPrice = Math.min(...prices);
+    const maxOriginalPrice = Math.max(...prices);
+
+    if (minPrice === maxPrice) {
+      return {
+        current: minPrice.toFixed(2),
+        original: minOriginalPrice.toFixed(2),
+      };
+    }
+    return {
+      current: `${minPrice.toFixed(2)} - ${maxPrice.toFixed(2)}`,
+      original: `${minOriginalPrice.toFixed(2)} - ${maxOriginalPrice.toFixed(
+        2
+      )}`,
+    };
+  };
+
+  // Check if any variant is in stock
+  const isInStock = product.variants?.some((v) => v.stock > 0);
+  const availableVariantsCount =
+    product.variants?.filter((v) => v.stock > 0).length || 0;
+
+  // Get available colors count (unique colors with stock)
+  const availableColorsCount = new Set(
+    product.variants?.filter((v) => v.stock > 0).map((v) => v.color)
+  ).size;
+
   return (
     <Card
-      className={`product-card ${isHovered ? 'hovered' : ''}`}
+      className={`product-card ${isHovered ? 'hovered' : ''} ${
+        !product.variants || product.variants.length === 0 ? 'no-variants' : ''
+      }`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -20,14 +64,28 @@ const Product = ({ product }) => {
             className='primary-image'
             alt={product.name}
           />
+          {isHovered && product.images?.[0] && (
+            <Card.Img
+              src={product.images[0]}
+              className='secondary-image'
+              alt={product.name}
+            />
+          )}
         </Link>
 
         <div className='product-badges'>
           {product.discount > 0 && (
             <span className='badge discount'>-{product.discount}%</span>
           )}
-          {product.countInStock <= 0 && (
-            <span className='badge out-of-stock'>Sold Out</span>
+          {!isInStock && <span className='badge out-of-stock'>Sold Out</span>}
+          {availableColorsCount > 0 && (
+            <span className='badge colors'>
+              {availableColorsCount} color
+              {availableColorsCount !== 1 ? 's' : ''}
+            </span>
+          )}
+          {(!product.variants || product.variants.length === 0) && (
+            <span className='badge warning'>Not Configured</span>
           )}
         </div>
       </div>
@@ -39,12 +97,6 @@ const Product = ({ product }) => {
           <Link to={`/product/${product._id}`}>{product.name}</Link>
         </Card.Title>
 
-        <Card.Text className='product-description'>
-          {product.description.length > 100
-            ? `${product.description.substring(0, 100)}...`
-            : product.description}
-        </Card.Text>
-
         <div className='product-meta'>
           <Rating
             value={product.rating}
@@ -53,20 +105,19 @@ const Product = ({ product }) => {
           />
 
           <div className='price-container'>
-            {product.discount > 0 ? (
+            {product.variants && product.variants.length > 0 ? (
               <>
                 <span className='current-price'>
-                  &#8377;
-                  {(product.price * (1 - product.discount / 100)).toFixed(2)}
+                  ₹{getDisplayPrice().current}
                 </span>
-                <span className='original-price'>
-                  &#8377;{product.price.toFixed(2)}
-                </span>
+                {product.discount > 0 && (
+                  <span className='original-price'>
+                    ₹{getDisplayPrice().original}
+                  </span>
+                )}
               </>
             ) : (
-              <span className='current-price'>
-                &#8377;{product.price.toFixed(2)}
-              </span>
+              <span className='not-available'>Not Available</span>
             )}
           </div>
         </div>

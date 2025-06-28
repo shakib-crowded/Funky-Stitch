@@ -11,15 +11,23 @@ const tempUserSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+    phone: {
+      type: String,
+      required: true, // Made required
+      trim: true,
+      unique: true,
+    },
     password: {
       type: String,
       required: true,
     },
     otp: {
+      // Changed from emailOtp to just otp
       type: String,
       required: true,
     },
     otpExpiry: {
+      // Changed from emailOtpExpiry
       type: Date,
       required: true,
     },

@@ -22,6 +22,7 @@ import {
 import { Link } from 'react-router-dom';
 import { useTrackOrderQuery } from '../slices/ordersApiSlice';
 import '../assets/styles/OrderTracking.css';
+import { toast } from 'react-toastify';
 
 const OrderTrackingScreen = () => {
   const [orderId, setOrderId] = useState('');
@@ -36,9 +37,11 @@ const OrderTrackingScreen = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (orderId.trim()) {
-      setSubmittedId(orderId);
+    if (!orderId.trim()) {
+      toast.error('Please enter an order ID');
+      return;
     }
+    setSubmittedId(orderId.trim());
   };
 
   const getStatusBadge = (status) => {
@@ -146,10 +149,22 @@ const OrderTrackingScreen = () => {
           {error && (
             <Alert variant='danger' className='text-center'>
               {error.data?.message ||
+                error.error ||
                 'Order not found. Please check your order number.'}
+              <div className='mt-2'>
+                <Button
+                  variant='outline-danger'
+                  onClick={() => setSubmittedId(null)}
+                  className='me-2'
+                >
+                  Try Again
+                </Button>
+                <Button as={Link} to='/order-history' variant='outline-primary'>
+                  View Order History
+                </Button>
+              </div>
             </Alert>
           )}
-
           {order && (
             <Card className='border-0 shadow-sm mb-4'>
               <Card.Body>

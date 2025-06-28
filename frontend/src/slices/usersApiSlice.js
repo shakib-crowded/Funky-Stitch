@@ -1,5 +1,6 @@
 import { apiSlice } from './apiSlice';
 import { USERS_URL } from '../constants';
+import { setCredentials } from '../slices/authSlice';
 
 export const userApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
@@ -17,12 +18,26 @@ export const userApiSlice = apiSlice.injectEndpoints({
         body: data,
       }),
     }),
-    // Add this to the endpoints
     verifyOtp: builder.mutation({
       query: (data) => ({
         url: `${USERS_URL}/verify-otp`,
         method: 'POST',
         body: data,
+      }),
+    }),
+
+    forgotPassword: builder.mutation({
+      query: (email) => ({
+        url: `${USERS_URL}/forgot-password`,
+        method: 'POST',
+        body: { email },
+      }),
+    }),
+    resetPassword: builder.mutation({
+      query: ({ resetToken, password }) => ({
+        url: `${USERS_URL}/reset-password/${resetToken}`,
+        method: 'PUT',
+        body: { password },
       }),
     }),
     logout: builder.mutation({
@@ -32,13 +47,24 @@ export const userApiSlice = apiSlice.injectEndpoints({
       }),
     }),
 
-    profile: builder.mutation({
+    // Add this new query endpoint for getting profile
+    getProfile: builder.query({
+      query: () => ({
+        url: `${USERS_URL}/profile`,
+      }),
+      providesTags: ['User'],
+    }),
+
+    // Keep the existing mutation for updating profile
+    updateProfile: builder.mutation({
       query: (data) => ({
         url: `${USERS_URL}/profile`,
         method: 'PUT',
         body: data,
       }),
+      invalidatesTags: ['User'],
     }),
+
     getUsers: builder.query({
       query: () => ({
         url: USERS_URL,
@@ -73,10 +99,13 @@ export const {
   useLoginMutation,
   useLogoutMutation,
   useRegisterMutation,
-  useProfileMutation,
+  useGetProfileQuery,
+  useUpdateProfileMutation,
   useGetUsersQuery,
   useDeleteUserMutation,
   useUpdateUserMutation,
   useGetUserDetailsQuery,
   useVerifyOtpMutation,
+  useForgotPasswordMutation,
+  useResetPasswordMutation,
 } = userApiSlice;

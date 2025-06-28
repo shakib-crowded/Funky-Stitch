@@ -16,6 +16,27 @@ const reviewSchema = mongoose.Schema(
   }
 );
 
+const variantSchema = new mongoose.Schema({
+  size: {
+    type: String,
+    enum: ['s', 'm', 'l', 'xl'],
+    required: true,
+  },
+  color: {
+    type: String,
+    required: true,
+  },
+  stock: {
+    type: Number,
+    required: true,
+    default: 0,
+  },
+  price: {
+    type: Number,
+    default: 0,
+  },
+});
+
 const productSchema = mongoose.Schema(
   {
     user: {
@@ -31,6 +52,13 @@ const productSchema = mongoose.Schema(
       type: String,
       required: true,
     },
+    images: [
+      {
+        url: { type: String, required: true },
+        color: { type: String }, // Track which color variant this image belongs to
+        isVariantMain: { type: Boolean, default: false }, // Mark if this is the main image for a variant
+      },
+    ],
     brand: {
       type: String,
       required: true,
@@ -43,7 +71,6 @@ const productSchema = mongoose.Schema(
       type: String,
       required: true,
     },
-
     features: [
       {
         type: String,
@@ -55,7 +82,6 @@ const productSchema = mongoose.Schema(
         value: { type: String, required: true },
       },
     ],
-
     reviews: [reviewSchema],
     rating: {
       type: Number,
@@ -67,7 +93,7 @@ const productSchema = mongoose.Schema(
       required: true,
       default: 0,
     },
-    price: {
+    basePrice: {
       type: Number,
       required: true,
       default: 0,
@@ -76,16 +102,29 @@ const productSchema = mongoose.Schema(
       type: Number,
       default: 0,
     },
-    countInStock: {
-      type: Number,
-      required: true,
-      default: 0,
-    },
+    variants: [variantSchema],
+    availableColors: [
+      {
+        type: String,
+      },
+    ],
+    availableSizes: [
+      {
+        type: String,
+        enum: ['s', 'm', 'l', 'xl'],
+      },
+    ],
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
+
+// productSchema.virtual('totalStock').get(function () {
+//   return this.variants.reduce((sum, variant) => sum + variant.stock, 0);
+// });
 
 const Product = mongoose.model('Product', productSchema);
 
