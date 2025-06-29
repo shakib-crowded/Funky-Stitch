@@ -181,8 +181,6 @@ const forgotPassword = asyncHandler(async (req, res) => {
       user.resetPasswordToken = resetToken;
       user.resetPasswordExpires = resetTokenExpiry;
 
-      console.log('This is works well');
-
       await user.save();
     } catch (dbError) {
       console.error('Database save error:', dbError);
@@ -193,6 +191,9 @@ const forgotPassword = asyncHandler(async (req, res) => {
     // Create reset URL (use your frontend URL)
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
+    console.log('Reset URL: ', resetUrl);
+    console.log('Email: ', process.env.EMAIL_USER);
+    console.log('Pass : ', process.env.EMAIL_PASS);
     // Configure email transporter
     const transporter = nodemailer.createTransport({
       service: 'gmail',

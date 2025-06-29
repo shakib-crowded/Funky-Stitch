@@ -2,16 +2,14 @@ import nodemailer from 'nodemailer';
 
 const sendOTPEmail = async (email, otp) => {
   try {
+    console.log('Email: ', process.env.EMAIL_USER);
+    console.log('Pass : ', process.env.EMAIL_PASS);
     const transporter = nodemailer.createTransport({
-      service: 'gmail', // or your email service
+      service: 'gmail',
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
-      tls: {
-    rejectUnauthorized: false, // <-- this accepts self-signed certs
-  },
-
     });
 
     const mailOptions = {
