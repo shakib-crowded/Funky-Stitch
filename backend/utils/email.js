@@ -2,18 +2,23 @@ import nodemailer from 'nodemailer';
 
 const sendOTPEmail = async (email, otp) => {
   try {
-    console.log('Email: ', process.env.EMAIL_USER);
-    console.log('Pass : ', process.env.EMAIL_PASS);
+    const { EMAIL_USER, EMAIL_PASS } = process.env;
+
+    if (!EMAIL_USER || !EMAIL_PASS) {
+      console.error('Email credentials are missing in environment variables');
+      throw new Error('Email configuration error');
+    }
+
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+        user: EMAIL_USER,
+        pass: EMAIL_PASS,
       },
     });
 
     const mailOptions = {
-      from: `"Funky Stitch" <${process.env.EMAIL_USER}>`,
+      from: `"Funky Stitch" <${EMAIL_USER}>`,
       to: email,
       subject: 'Your OTP for Registration',
       html: `
@@ -28,10 +33,11 @@ const sendOTPEmail = async (email, otp) => {
       `,
     };
 
-    await transporter.sendMail(mailOptions);
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`Email sent to ${email}: ${info.messageId}`);
   } catch (error) {
-    console.error('Error sending email:', error);
-    throw new Error('Failed to send OTP email');
+    console.error('Error sending OTP email:', error.message);
+    throw new Error('Could not send OTP email at this time.');
   }
 };
 

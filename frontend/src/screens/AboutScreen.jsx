@@ -19,7 +19,7 @@ const AboutUsScreen = () => {
             Our Story
           </h1>
           <p className='lead'>
-            Founded in 2023, we started with a simple mission: to make online
+            Founded in 2025, we started with a simple mission: to make online
             shopping effortless, enjoyable, and accessible to everyone. What
             began as a small team with big dreams has grown into a trusted
             e-commerce platform serving thousands of happy customers.
@@ -141,7 +141,7 @@ const AboutUsScreen = () => {
         </Col>
       </Row>
 
-      {/* Team Section */}
+      {/* Team Section
       <h2 className='fw-bold text-center mb-4' style={{ color: '#2c3e50' }}>
         Meet Our Team
       </h2>
@@ -188,7 +188,7 @@ const AboutUsScreen = () => {
             </Card.Body>
           </Card>
         </Col>
-      </Row>
+      </Row> */}
 
       {/* CTA Section */}
       <Card
