@@ -65,10 +65,16 @@ const ProductScreen = () => {
   useEffect(() => {
     if (product?.variants && selectedSize && selectedColor) {
       const variant = product.variants.find(
-        (v) => v.size === selectedSize && v.color === selectedColor
+        (v) =>
+          v.size === selectedSize &&
+          v.color.toLowerCase() === selectedColor.toLowerCase()
       );
 
       setSelectedVariant(variant || null);
+
+      // Update the main image when color changes
+      const colorImage = getImageForColor(selectedColor);
+      setMainImage(colorImage);
     }
   }, [selectedSize, selectedColor, product]);
   const addToCartHandler = () => {
@@ -137,6 +143,13 @@ const ProductScreen = () => {
     return price.toFixed(2);
   };
 
+  const getImageForColor = (color) => {
+    const colorImage = product.images.find(
+      (img) => img.color.toLowerCase() === color.toLowerCase()
+    );
+    return colorImage ? colorImage.url : product.image;
+  };
+
   // Check if product is in stock
   const isInStock = product?.variants?.length
     ? selectedVariant?.stock > 0
@@ -168,8 +181,8 @@ const ProductScreen = () => {
             <div className='product-gallery'>
               <div className='main-image mb-3'>
                 <Image
-                  src={mainImage || product.image} // Use mainImage if set, otherwise fallback to product.image
-                  alt={product.name}
+                  src={mainImage || product.image}
+                  alt={`${product.name} - ${selectedColor || 'default'}`}
                   fluid
                   className='rounded-3 w-100'
                   style={{ maxHeight: '500px', objectFit: 'contain' }}
@@ -177,7 +190,7 @@ const ProductScreen = () => {
               </div>
               {product.images?.length > 0 && (
                 <div className='thumbnail-container d-flex gap-2'>
-                  {/* Show main image as first thumbnail */}
+                  {/* Show default product image as first thumbnail */}
                   <Image
                     src={product.image}
                     alt={product.name}
@@ -187,33 +200,42 @@ const ProductScreen = () => {
                       height: '80px',
                       objectFit: 'cover',
                       cursor: 'pointer',
-                      border:
-                        mainImage === product.image
-                          ? '2px solid #FF5252'
-                          : '1px solid #ddd',
+                      border: !selectedColor
+                        ? '2px solid #FF5252'
+                        : '1px solid #ddd',
                     }}
-                    onClick={() => setMainImage(product.image)}
+                    onClick={() => {
+                      setMainImage(product.image);
+                      setSelectedColor(''); // Reset color selection
+                    }}
                   />
-                  {/* Show other images */}
-                  {product.images.map((imgObj, index) => (
-                    <Image
-                      key={index}
-                      src={imgObj.url} // Access the url property of the image object
-                      alt={`${product.name} ${index + 1}`}
-                      className='rounded-2'
-                      style={{
-                        width: '80px',
-                        height: '80px',
-                        objectFit: 'cover',
-                        cursor: 'pointer',
-                        border:
-                          mainImage === imgObj.url // Compare with url property
-                            ? '2px solid #FF5252'
-                            : '1px solid #ddd',
-                      }}
-                      onClick={() => setMainImage(imgObj.url)} // Set the url property
-                    />
-                  ))}
+
+                  {/* Show color variant images */}
+                  {product.availableColors.map((color) => {
+                    const colorImage = getImageForColor(color);
+                    return (
+                      <Image
+                        key={color}
+                        src={colorImage}
+                        alt={`${product.name} - ${color}`}
+                        className='rounded-2'
+                        style={{
+                          width: '80px',
+                          height: '80px',
+                          objectFit: 'cover',
+                          cursor: 'pointer',
+                          border:
+                            selectedColor?.toLowerCase() === color.toLowerCase()
+                              ? '2px solid #FF5252'
+                              : '1px solid #ddd',
+                        }}
+                        onClick={() => {
+                          setSelectedColor(color);
+                          setMainImage(colorImage);
+                        }}
+                      />
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -245,60 +267,94 @@ const ProductScreen = () => {
                   </span>
                 )}
               </div>
-
-              {/* Size and Color Selection */}
+              {/* Modern Size Selection */}
               {product.availableSizes?.length > 0 && (
-                <div className='mb-3'>
-                  <h5>Size:</h5>
-                  <div className='d-flex flex-wrap gap-2'>
+                <div className='mb-4'>
+                  <h5 className='text-sm font-medium text-gray-700 mb-2'>
+                    Select Size
+                  </h5>
+                  <div className='flex flex-wrap gap-2'>
                     {product.availableSizes.map((size) => (
-                      <Button
+                      <button
                         key={size}
-                        variant={
-                          selectedSize === size
-                            ? 'primary'
-                            : 'outline-secondary'
-                        }
                         onClick={() => setSelectedSize(size)}
-                        className='text-uppercase'
+                        className={`px-4 py-2 rounded-md border transition-all
+            ${
+              selectedSize === size
+                ? 'bg-black text-white border-black'
+                : 'bg-white text-gray-800 border-gray-300 hover:border-gray-400'
+            }`}
                       >
-                        {size}
-                      </Button>
+                        {size.toUpperCase()}
+                      </button>
                     ))}
                   </div>
                 </div>
               )}
-
+              {/* Modern Color Selection - Improved Visibility */}
+              {/* Extra Large Color Selection */}
               {product.availableColors?.length > 0 && (
-                <div className='mb-3'>
-                  <h5>Color:</h5>
-                  <div className='d-flex flex-wrap gap-2'>
-                    {product.availableColors.map((color) => (
-                      <Button
-                        key={color}
-                        variant={
-                          selectedColor === color
-                            ? 'primary'
-                            : 'outline-secondary'
-                        }
-                        onClick={() => setSelectedColor(color)}
-                        style={{
-                          backgroundColor: color.toLowerCase(),
-                          color: ['white', 'yellow', 'pink'].includes(
-                            color.toLowerCase()
-                          )
-                            ? 'black'
-                            : 'white',
-                          borderColor: 'gray',
-                        }}
-                      >
-                        {color}
-                      </Button>
-                    ))}
+                <div className='mb-8'>
+                  <h5 className='text-lg font-semibold text-gray-900 mb-4'>
+                    Select Color
+                  </h5>
+                  <div className='flex flex-wrap gap-5'>
+                    {product.availableColors.map((color) => {
+                      const colorImage = getImageForColor(color);
+                      return (
+                        <button
+                          key={color}
+                          onClick={() => {
+                            setSelectedColor(color);
+                            setMainImage(colorImage);
+                          }}
+                          className={`relative w-20 h-20 rounded-full flex items-center justify-center transition-all
+              ${
+                selectedColor?.toLowerCase() === color.toLowerCase()
+                  ? 'ring-3 ring-offset-2 ring-[#FF5252] scale-110 shadow-md'
+                  : 'hover:ring-3 hover:ring-gray-200'
+              }`}
+                          style={{
+                            backgroundColor: color.toLowerCase(),
+                          }}
+                          aria-label={color}
+                          title={color}
+                        >
+                          {selectedColor?.toLowerCase() ===
+                            color.toLowerCase() && (
+                            <svg
+                              className='w-8 h-8 text-white'
+                              fill='none'
+                              stroke='currentColor'
+                              viewBox='0 0 24 24'
+                            >
+                              <path
+                                strokeLinecap='round'
+                                strokeLinejoin='round'
+                                strokeWidth='3'
+                                d='M5 13l4 4L19 7'
+                              />
+                            </svg>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className='mt-4 text-lg font-semibold text-gray-900'>
+                    {selectedColor && (
+                      <span className='inline-flex items-center'>
+                        <span
+                          className='w-6 h-6 rounded-full mr-2 inline-block'
+                          style={{
+                            backgroundColor: selectedColor.toLowerCase(),
+                          }}
+                        ></span>
+                        Selected: {selectedColor}
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
-
               <div className='price-container mb-3'>
                 {product.discount > 0 ? (
                   <>

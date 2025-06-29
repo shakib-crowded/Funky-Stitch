@@ -1,126 +1,148 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import Rating from './Rating';
+// import '../assets/styles/Product.css';
 import '../assets/styles/Product.css';
-
 const Product = ({ product }) => {
   const [isHovered, setIsHovered] = useState(false);
-  const [isWishlisted, setIsWishlisted] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [imageInterval, setImageInterval] = useState(null);
 
-  // Calculate display price based on variants
-  const getDisplayPrice = () => {
-    if (!product.variants || product.variants.length === 0) {
-      return 'Not Available';
+  // Start image carousel on hover
+  useEffect(() => {
+    if (isHovered && product.images?.length > 1) {
+      const interval = setInterval(() => {
+        setCurrentImageIndex((prev) => (prev + 1) % product.images.length);
+      }, 2000); // Rotate every 2 seconds
+      setImageInterval(interval);
+    } else {
+      clearInterval(imageInterval);
+      setCurrentImageIndex(0);
     }
+    return () => clearInterval(imageInterval);
+  }, [isHovered]);
 
-    // Calculate prices with discount applied
+  // Calculate price range
+  const priceData = (() => {
+    if (!product.variants?.length) return null;
+
     const prices = product.variants.map((v) => v.price || product.basePrice);
-    const discountedPrices = prices.map((price) =>
-      product.discount > 0 ? price * (1 - product.discount / 100) : price
-    );
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    const hasDiscount = product.discount > 0;
 
-    const minPrice = Math.min(...discountedPrices);
-    const maxPrice = Math.max(...discountedPrices);
-    const minOriginalPrice = Math.min(...prices);
-    const maxOriginalPrice = Math.max(...prices);
-
-    if (minPrice === maxPrice) {
-      return {
-        current: minPrice.toFixed(2),
-        original: minOriginalPrice.toFixed(2),
-      };
-    }
     return {
-      current: `${minPrice.toFixed(2)} - ${maxPrice.toFixed(2)}`,
-      original: `${minOriginalPrice.toFixed(2)} - ${maxOriginalPrice.toFixed(
-        2
-      )}`,
+      minPrice: hasDiscount
+        ? minPrice * (1 - product.discount / 100)
+        : minPrice,
+      maxPrice: hasDiscount
+        ? maxPrice * (1 - product.discount / 100)
+        : maxPrice,
+      minOriginal: minPrice,
+      maxOriginal: maxPrice,
+      isRange: minPrice !== maxPrice,
+      hasDiscount,
     };
-  };
+  })();
 
-  // Check if any variant is in stock
-  const isInStock = product.variants?.some((v) => v.stock > 0);
-  const availableVariantsCount =
-    product.variants?.filter((v) => v.stock > 0).length || 0;
+  // Stock status
+  const stockStatus = (() => {
+    if (!product.variants?.length)
+      return { inStock: false, variantsAvailable: 0 };
 
-  // Get available colors count (unique colors with stock)
-  const availableColorsCount = new Set(
-    product.variants?.filter((v) => v.stock > 0).map((v) => v.color)
-  ).size;
+    const availableVariants = product.variants.filter((v) => v.stock > 0);
+    return {
+      inStock: availableVariants.length > 0,
+      variantsAvailable: availableVariants.length,
+      colorsAvailable: new Set(availableVariants.map((v) => v.color)).size,
+    };
+  })();
+
+  // Image display
+  const displayImages = [
+    product.image,
+    ...(product.images?.map((img) => img.url) || []),
+  ];
+  const currentImage = displayImages[currentImageIndex] || product.image;
 
   return (
     <Card
-      className={`product-card ${isHovered ? 'hovered' : ''} ${
-        !product.variants || product.variants.length === 0 ? 'no-variants' : ''
-      }`}
+      className={`product-card ${!stockStatus.inStock ? 'out-of-stock' : ''}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className='product-media'>
-        <Link to={`/product/${product._id}`} className='image-link'>
-          <Card.Img
-            src={product.image}
-            className='primary-image'
-            alt={product.name}
-          />
-          {isHovered && product.images?.[0] && (
-            <Card.Img
-              src={product.images[0]}
-              className='secondary-image'
+      <div className='product-media-wrapper'>
+        <Link to={`/product/${product._id}`} className='product-image-link'>
+          <div className='image-container'>
+            <img
+              src={currentImage}
               alt={product.name}
+              className='product-main-image'
+              loading='lazy'
             />
-          )}
+          </div>
         </Link>
 
         <div className='product-badges'>
-          {product.discount > 0 && (
-            <span className='badge discount'>-{product.discount}%</span>
+          {priceData?.hasDiscount && (
+            <span className='badge discount-badge'>-{product.discount}%</span>
           )}
-          {!isInStock && <span className='badge out-of-stock'>Sold Out</span>}
-          {availableColorsCount > 0 && (
-            <span className='badge colors'>
-              {availableColorsCount} color
-              {availableColorsCount !== 1 ? 's' : ''}
+          {product.isNew && <span className='badge new-badge'>New</span>}
+          {!stockStatus.inStock && (
+            <span className='badge stock-badge'>Sold Out</span>
+          )}
+          {stockStatus.colorsAvailable > 0 && (
+            <span className='badge color-badge'>
+              {stockStatus.colorsAvailable} Color
+              {stockStatus.colorsAvailable !== 1 ? 's' : ''}
             </span>
-          )}
-          {(!product.variants || product.variants.length === 0) && (
-            <span className='badge warning'>Not Configured</span>
           )}
         </div>
       </div>
 
-      <Card.Body className='product-content'>
+      <Card.Body className='product-info'>
         <div className='product-category'>{product.category}</div>
 
         <Card.Title className='product-title'>
           <Link to={`/product/${product._id}`}>{product.name}</Link>
         </Card.Title>
 
-        <div className='product-meta'>
+        <div className='product-rating'>
           <Rating
             value={product.rating}
-            text={`(${product.numReviews})`}
-            className='product-rating'
+            text={`${product.numReviews} review${
+              product.numReviews !== 1 ? 's' : ''
+            }`}
           />
-
-          <div className='price-container'>
-            {product.variants && product.variants.length > 0 ? (
-              <>
-                <span className='current-price'>
-                  ₹{getDisplayPrice().current}
-                </span>
-                {product.discount > 0 && (
-                  <span className='original-price'>
-                    ₹{getDisplayPrice().original}
-                  </span>
-                )}
-              </>
-            ) : (
-              <span className='not-available'>Not Available</span>
-            )}
-          </div>
         </div>
+
+        <div className='product-pricing'>
+          {priceData ? (
+            <>
+              <div className='current-price'>
+                ₹{priceData.minPrice.toFixed(2)}
+                {priceData.isRange && ` - ₹${priceData.maxPrice.toFixed(2)}`}
+              </div>
+              {priceData.hasDiscount && (
+                <div className='original-price'>
+                  <span>₹{priceData.minOriginal.toFixed(2)}</span>
+                  {priceData.isRange &&
+                    ` - ₹${priceData.maxOriginal.toFixed(2)}`}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className='not-available'>Not Available</div>
+          )}
+        </div>
+
+        {stockStatus.inStock && (
+          <div className='availability'>
+            {stockStatus.variantsAvailable} option
+            {stockStatus.variantsAvailable !== 1 ? 's' : ''} available
+          </div>
+        )}
       </Card.Body>
     </Card>
   );

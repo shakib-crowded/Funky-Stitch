@@ -180,6 +180,9 @@ const forgotPassword = asyncHandler(async (req, res) => {
     try {
       user.resetPasswordToken = resetToken;
       user.resetPasswordExpires = resetTokenExpiry;
+
+      console.log('This is works well');
+
       await user.save();
     } catch (dbError) {
       console.error('Database save error:', dbError);
