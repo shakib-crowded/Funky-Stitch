@@ -5,6 +5,7 @@ import TempUser from '../models/tempUserModel.js';
 import sendOTPEmail from '../utils/email.js';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 
 const generateToken = (userId) => {
   return jwt.sign({ userId }, process.env.JWT_SECRET, {
