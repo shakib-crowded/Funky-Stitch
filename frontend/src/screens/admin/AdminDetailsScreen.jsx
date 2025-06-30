@@ -211,7 +211,6 @@ const AdminOrderDetailsScreen = () => {
                         />
                       </Col>
                       <Col md={4}>
-                        {console.log('Product: ', item)}
                         <Link to={`/product/${item.product._id}`}>
                           {item.name}
                         </Link>

@@ -186,7 +186,6 @@ const ViewOrderScreen = () => {
                     <Col md={4} className='fw-bold'>
                       Phone:
                     </Col>
-                    {console.log(order.user)}
                     <Col md={8}>{order.user?.phone}</Col>
                   </Row>
                 </ListGroup.Item>
