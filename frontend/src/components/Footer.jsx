@@ -138,15 +138,15 @@ const Footer = () => {
             <ul className='list-unstyled'>
               <li className='mb-3 d-flex align-items-center'>
                 <MdLocationOn className='me-3 text-primary' />
-                123 Business Ave, Suite 456, San Francisco, CA 94107
+                Shahjhapur, Lucknow
               </li>
               <li className='mb-3 d-flex align-items-center'>
                 <MdEmail className='me-3 text-primary' />
-                info@shopname.com
+                funkystitch.outfit@gmail.com
               </li>
               <li className='mb-3 d-flex align-items-center'>
                 <MdPhone className='me-3 text-primary' />
-                +1 (555) 123-4567
+                +91 93365 45458
               </li>
             </ul>
 
