@@ -134,17 +134,20 @@ const Footer = () => {
 
           {/* Contact Info */}
           <div className='col-lg-4 col-md-6'>
-            <h6 className='text-uppercase fw-bold mb-4'>Contact Us</h6>
+          <h6 className='text-uppercase fw-bold mb-4'>Contact Us</h6>
             <ul className='list-unstyled'>
               <li className='mb-3 d-flex align-items-center'>
+                
                 <MdLocationOn className='me-3 text-primary' />
                 Shahjhapur, Lucknow
               </li>
               <li className='mb-3 d-flex align-items-center'>
+             
                 <MdEmail className='me-3 text-primary' />
                 funkystitch.outfit@gmail.com
               </li>
               <li className='mb-3 d-flex align-items-center'>
+                 
                 <MdPhone className='me-3 text-primary' />
                 +91 93365 45458
               </li>

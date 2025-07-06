@@ -11,9 +11,9 @@ const HeroSection = () => {
 
   const slides = [
     {
-      title: 'Summer Collection 2023',
-      subtitle: 'Discover our new arrivals',
-      description: 'Up to 50% off on selected items',
+      title: 'Summer Collection 2025',
+      subtitle: 'Coming Soon',
+      description: 'Over-Size T-Shirts Up to 5% off',
       buttonText: 'Shop Now',
       background: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${hero1})`,
       searchQuery: 'Classic',
@@ -29,7 +29,7 @@ const HeroSection = () => {
     {
       title: 'Premium Quality',
       subtitle: 'Crafted with perfection',
-      description: 'Experience luxury like never before',
+      description: 'Be Authentic, Be Orignal',
       buttonText: 'Discover',
       background:
         `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${hero3})`,
