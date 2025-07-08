@@ -3,7 +3,7 @@ import { Button, Container } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import '../assets/styles/HeroSection.css';
 import hero1 from '../assets/hero-1.jpg';
-import hero2 from '../assets/hero-2.jpg';
+import hero2 from '../assets/hero-2.png';
 import hero3 from '../assets/hero-3.jpg';
 import { MdColorLens } from 'react-icons/md';
 
