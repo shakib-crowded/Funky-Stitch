@@ -23,10 +23,10 @@ const Footer = () => {
               products with exceptional service.
             </p>
             <div className='social-icons mt-4'>
-              <a href='#' className='text-white me-3'>
+              <a href='https://www.facebook.com/share/16ByDzjEfA/' target='_blank' className='text-white me-3'>
                 <FaFacebook size={20} />
               </a>
-              <a href='#' className='text-white me-3'>
+              <a href='https://x.com/FunkyStitch0?t=g37IYy1uXS1gn5YMTalSnw&s=08' target='_blank' className='text-white me-3'>
                 <FaTwitter size={20} />
               </a>
               <a href='https://www.instagram.com/funkystitch.in/' target='_blank' className='text-white me-3'>
@@ -138,17 +138,17 @@ const Footer = () => {
             <ul className='list-unstyled'>
               <li className='mb-3 d-flex align-items-center'>
                 
-                <MdLocationOn className='me-3 text-primary' />
+                {/* <MdLocationOn className='me-3 text-primary' /> */}
                 Shahjhapur, Lucknow
               </li>
               <li className='mb-3 d-flex align-items-center'>
              
-                <MdEmail className='me-3 text-primary' />
+                {/* <MdEmail className='me-3 text-primary' /> */}
                 funkystitch.outfit@gmail.com
               </li>
               <li className='mb-3 d-flex align-items-center'>
                  
-                <MdPhone className='me-3 text-primary' />
+                {/* <MdPhone className='me-3 text-primary' /> */}
                 +91 93365 45458
               </li>
             </ul>

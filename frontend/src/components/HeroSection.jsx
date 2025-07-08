@@ -5,6 +5,7 @@ import '../assets/styles/HeroSection.css';
 import hero1 from '../assets/hero-1.jpg';
 import hero2 from '../assets/hero-2.jpg';
 import hero3 from '../assets/hero-3.jpg';
+import { MdColorLens } from 'react-icons/md';
 
 const HeroSection = () => {
   const [activeSlide, setActiveSlide] = useState(0);
@@ -16,7 +17,7 @@ const HeroSection = () => {
       description: 'Over-Size T-Shirts Up to 5% off',
       buttonText: 'Shop Now',
       background: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${hero1})`,
-      searchQuery: 'Classic',
+      searchQuery: 'ANIMATED',
     },
     {
       title: 'Limited Edition',
@@ -24,7 +25,7 @@ const HeroSection = () => {
       description: 'Only available this season',
       buttonText: 'Explore',
       background: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${hero2})`,
-      searchQuery: 'limited',
+      searchQuery: 'Dc',
     },
     {
       title: 'Premium Quality',
@@ -33,7 +34,7 @@ const HeroSection = () => {
       buttonText: 'Discover',
       background:
         `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${hero3})`,
-      searchQuery: 'premium',
+      searchQuery: 'Marvel',
     },
   ];
 
@@ -57,9 +58,9 @@ const HeroSection = () => {
           >
             <Container className='hero-content'>
               <div className='slide-text'>
-                <h2 className='slide-title'>{slide.title}</h2>
-                <h3 className='slide-subtitle'>{slide.subtitle}</h3>
-                <p className='slide-description'>{slide.description}</p>
+                <h2 className='slide-title' style={{color: "white"}}>{slide.title}</h2>
+                <h3 className='slide-subtitle' style={{color:"white"}}>{slide.subtitle}</h3>
+                <p className='slide-description'style={{color:"white"}}>{slide.description}</p>
                 <Button
                   as={Link}
                   to={`/search/${encodeURIComponent(slide.searchQuery)}`}

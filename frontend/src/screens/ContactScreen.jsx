@@ -57,7 +57,7 @@ const ContactScreen = () => {
                   </div>
                   <div>
                     <h5 className='mb-0'>Phone</h5>
-                    <p className='mb-0 text-muted'>+1 (123) 456-7890</p>
+                    <p className='mb-0 text-muted'>+91 93365 45458</p>
                   </div>
                 </div>
 
@@ -67,7 +67,7 @@ const ContactScreen = () => {
                   </div>
                   <div>
                     <h5 className='mb-0'>Email</h5>
-                    <p className='mb-0 text-muted'>support@example.com</p>
+                    <p className='mb-0 text-muted'>funkystitch.outfit@gmail.com</p>
                   </div>
                 </div>
 
@@ -78,7 +78,7 @@ const ContactScreen = () => {
                   <div>
                     <h5 className='mb-0'>Address</h5>
                     <p className='mb-0 text-muted'>
-                      123 Main Street, City, Country
+                      Shahjhapur, Lucknow
                     </p>
                   </div>
                 </div>
